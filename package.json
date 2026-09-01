@@ -1,0 +1,14 @@
+{
+  "name": "orthodox-spiritual-books-bot",
+  "version": "1.0.0",
+  "description": "የኦርቶዶክስ መንፈሳዊ መጽሐፍት ቴሌግራም ቦት",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-fetch": "^2.6.7",
+    "telegraf": "^4.12.0"
+  }
+}
