@@ -546,33 +546,88 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
+// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING (FIXED FOR FORWARDED FILES)
 // ==========================================
 bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
+  const message = ctx.message;
 
-  if (userId === ADMIN_ID) {
-    let fileId = "";
-    let fileName = "ፋይል (Photo)";
-
-    if (ctx.message.document) {
-      fileId = ctx.message.document.file_id;
-      fileName = ctx.message.document.file_name || "Document";
-    } else if (ctx.message.photo) {
-      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+  // Helper function to extract file info from any message type (including forwarded)
+  function getFileInfo(msg) {
+    // Check if there's a document
+    if (msg.document) {
+      return {
+        type: 'document',
+        fileId: msg.document.file_id,
+        fileName: msg.document.file_name || 'Document',
+        mimeType: msg.document.mime_type || 'application/octet-stream'
+      };
+    }
+    
+    // Check if there's a photo (get the highest quality)
+    if (msg.photo && msg.photo.length > 0) {
+      const photo = msg.photo[msg.photo.length - 1];
+      return {
+        type: 'photo',
+        fileId: photo.file_id,
+        fileName: 'Photo.jpg',
+        mimeType: 'image/jpeg'
+      };
     }
 
+    // Check if the message is a forwarded file
+    if (msg.forward_from_chat || msg.forward_from) {
+      // For forwarded messages, the file might be nested differently
+      // Try to get file from the original message
+      if (msg.forward_from_chat) {
+        // If forwarded from a channel, we might need to get the file from the original message ID
+        // but we can still access document/photo directly if available
+        if (msg.document) {
+          return {
+            type: 'document',
+            fileId: msg.document.file_id,
+            fileName: msg.document.file_name || 'Document',
+            mimeType: msg.document.mime_type || 'application/octet-stream'
+          };
+        }
+        if (msg.photo && msg.photo.length > 0) {
+          const photo = msg.photo[msg.photo.length - 1];
+          return {
+            type: 'photo',
+            fileId: photo.file_id,
+            fileName: 'Photo.jpg',
+            mimeType: 'image/jpeg'
+          };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  const fileInfo = getFileInfo(message);
+
+  // If no file info found, inform the user
+  if (!fileInfo) {
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)።");
+  }
+
+  // ADMIN: Extract and display file ID for any file
+  if (userId === ADMIN_ID) {
     return ctx.reply(
       `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
-      `📄 **File Name:** \`${fileName}\`\n` +
-      `🆔 **File ID:** \`${fileId}\`\n\n` +
+      `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
+      `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
+      `📁 **File Type:** \`${fileInfo.type}\`\n` +
+      `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n\n` +
       `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
       { parse_mode: 'Markdown' }
     );
   }
 
-  const caption = ctx.message.caption || "";
-  const docName = ctx.message.document ? ctx.message.document.file_name : "";
+  // For non-admin users: check if it's a valid receipt
+  const caption = message.caption || "";
+  const docName = fileInfo.fileName || "";
   const fullText = (caption + " " + docName).toLowerCase();
 
   const validBankKeywords = [
@@ -582,7 +637,7 @@ bot.on(['photo', 'document'], async (ctx) => {
   ];
 
   const hasKeyword = validBankKeywords.some(keyword => fullText.includes(keyword));
-  const isPhotoReceipt = !!ctx.message.photo;
+  const isPhotoReceipt = fileInfo.type === 'photo';
   const isValidReceipt = hasKeyword || isPhotoReceipt;
 
   if (!isValidReceipt) {
@@ -591,15 +646,16 @@ bot.on(['photo', 'document'], async (ctx) => {
   }
 
   if (isPaidUser(userId)) {
-    return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
+    return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፍለግዎትም።");
   }
 
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
+  // Forward the message to admin (works for both direct and forwarded messages)
   const forwardedMsg = await ctx.telegram.forwardMessage(
     ADMIN_ID,
     ctx.chat.id,
-    ctx.message.message_id
+    message.message_id
   );
 
   db.pendingReceipts[forwardedMsg.message_id] = {
@@ -612,7 +668,9 @@ bot.on(['photo', 'document'], async (ctx) => {
     `📥 **አዲስ የክፍያ ሪሲት ደርሷል!**\n\n` +
     `🧾 **Order No:** \`#${orderNumber}\`\n` +
     `👤 **ተጠቃሚ ID:** \`${userId}\`\n` +
-    `👤 **Username:** @${ctx.from.username || 'የለውም'}`,
+    `👤 **Username:** @${ctx.from.username || 'የለውም'}\n` +
+    `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
+    `📁 **File Type:** \`${fileInfo.type}\``,
     {
       parse_mode: 'Markdown',
       ...Markup.inlineKeyboard([
