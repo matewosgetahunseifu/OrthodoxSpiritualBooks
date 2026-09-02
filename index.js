@@ -124,13 +124,9 @@ const booksDatabase = {
     { id: "2", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማርቆስ ትርጓሜ" },
     { id: "3", file_id: "BQACAgQAAxkBAANyapersQ98wbYKC8-79MnvYLqhKTAAAmQeAAK225lQS9MwBsORgaI9BA", title: "ወንጌል ዘሉቃድ ትርጓሜ" },
     { id: "4", file_id: "BQACAgQAAxkBAANzapersT-LRq5gCg7KU_3K9e6EKmoAAhkbAAJt8rhSH2tfVI7_W4M9BA", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
-    { id: "5", file_id: "BQACAgQAAxkBAAOBape555kx5chgTM0HuqJivR3bDuQAAg0YAALB61hQCIYaj31GHiw9BA", title: "የሐዋርያት ሥራ ትርጓሜ" }
-    {
-      id:"6", file_id:"BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title:"ሮሜ አንድምታ ትርጓሜ "
-    },
-    {
-      id:"7",file_id:"BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title:"ወደ ሮሜ ንባቡና ትርጓሜ"
-    },
+    { id: "5", file_id: "BQACAgQAAxkBAAOBape555kx5chgTM0HuqJivR3bDuQAAg0YAALB61hQCIYaj31GHiw9BA", title: "የሐዋርያት ሥራ ትርጓሜ" },
+    { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ" },
+    { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ" }
   ],
 
   // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
@@ -550,13 +546,11 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING (FIXED FOR FORWARDED FILES)
+// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
 // ==========================================
-// This function deeply extracts file info from ANY message type
 function extractFileInfo(msg) {
   console.log('Analyzing message:', JSON.stringify(msg, null, 2));
   
-  // Check for document directly
   if (msg.document) {
     return {
       type: 'document',
@@ -567,7 +561,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for photo (get highest quality)
   if (msg.photo && msg.photo.length > 0) {
     const photo = msg.photo[msg.photo.length - 1];
     return {
@@ -579,7 +572,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for video
   if (msg.video) {
     return {
       type: 'video',
@@ -590,7 +582,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for audio
   if (msg.audio) {
     return {
       type: 'audio',
@@ -601,7 +592,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for voice
   if (msg.voice) {
     return {
       type: 'voice',
@@ -612,7 +602,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for animation (GIF)
   if (msg.animation) {
     return {
       type: 'animation',
@@ -623,7 +612,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for sticker
   if (msg.sticker) {
     return {
       type: 'sticker',
@@ -634,12 +622,7 @@ function extractFileInfo(msg) {
     };
   }
   
-  // Check for forwarded message that might have file in media group
-  // Telegram often sends media groups as separate messages with the same media_group_id
-  // The file will be in the individual message
   if (msg.forward_from_chat || msg.forward_from) {
-    // For forwarded messages, the file info might be in the original message
-    // But we already checked document/photo above, so if we're here, there's no direct file
     console.log('Forwarded message with no direct file detected');
     return null;
   }
@@ -652,17 +635,14 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
   const userId = ctx.from.id;
   const message = ctx.message;
   
-  console.log(`Received ${message} from user ${userId}`);
+  console.log(`Received file from user ${userId}`);
 
-  // Extract file info using the robust function
   const fileInfo = extractFileInfo(message);
 
-  // If no file info found, inform the user
   if (!fileInfo) {
-    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)። ወይም ደግሞ ፋይሉን ከቻናል እያስተላለፉ ከሆነ በመጀመሪያ ፋይሉን ወደ እራስዎ አስቀምጠው ከዚያ ይላኩ።");
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)።");
   }
 
-  // ADMIN: Extract and display file ID for any file
   if (userId === ADMIN_ID) {
     return ctx.reply(
       `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
@@ -671,16 +651,11 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
       `📁 **File Type:** \`${fileInfo.type}\`\n` +
       `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
       `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n\n` +
-      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።\n\n` +
-      `📝 **ለመጠቀም መመሪያ:**\n` +
-      `1. ከላይ ያለውን File ID ይቅዱ\n` +
-      `2. በ booksDatabase ውስጥ ተገቢውን መጽሐፍ ይፈልጉ\n` +
-      `3. የ 'file_id' እሴትን በተቀዳው ID ይቀይሩ`,
+      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
       { parse_mode: 'Markdown' }
     );
   }
 
-  // For non-admin users: check if it's a valid receipt
   const caption = message.caption || "";
   const docName = fileInfo.fileName || "";
   const fullText = (caption + " " + docName).toLowerCase();
@@ -697,7 +672,6 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
   const isValidReceipt = hasKeyword || isPhotoReceipt;
 
   if (!isValidReceipt) {
-    // Try to delete the message, but don't fail if we can't
     try {
       await ctx.deleteMessage();
     } catch (err) {
@@ -713,7 +687,6 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
-    // Forward the message to admin (works for both direct and forwarded messages)
     const forwardedMsg = await ctx.telegram.forwardMessage(
       ADMIN_ID,
       ctx.chat.id,
