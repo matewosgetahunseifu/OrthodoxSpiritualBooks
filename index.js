@@ -52,14 +52,23 @@ setInterval(async () => {
 // ==========================================
 // 3. BOOKS DATABASE
 // ==========================================
+
+// በግእዝ ቋንቋ የተጻፉ መጽሐፍት
+//ሕግ
+
 const booksDatabase = {
   "geez_law": [
-    { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
-    { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
+    { id: "1", file_id: "BQACAgQAAxkBAAObapfFMdZRfFwbkAda6Q8YVMWvPL0AAmcKAAKIvhFR8Xg54ekJ6HY9BA", title: "መጽሐፈ ሐዊ ብራና" },
+    { id: "2", file_id: "BQACAgQAAxkBAAPGapgeunYm6igi6uUMiiEgpCNnBoYAAoYPAAJiD6FSFfOYzHFnfS49BA", title: "መጽሐፈ ሲኖዶስ" },
     { id: "3", file_id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)" },
     { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ታሪክ ታሪክ
+  
+  
   "geez_hist": [
     { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
@@ -67,6 +76,11 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ገድል ገድል
+  
+  
   "geez_gdsl": [
     { id: "1", file_id: "DUMMY_GEEZ_GDSL_01", title: "ድርሳነ ሚካኤል (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_GDSL_02", title: "ድርሳነ ገብርኤል (ግዕዝ)" },
@@ -74,6 +88,11 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_GDSL_04", title: "ገድለ ተክለ ሃይማኖት (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ብሉይ ኪዳን
+  
+  
   "geez_ot": [
     { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
     { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
@@ -81,6 +100,11 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ሐዲስ ኪዳን
+  
+  
   "geez_nt": [
     { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
     { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
@@ -88,9 +112,14 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ አማርኛ ሕግ
+  
+  
   "ga_law": [
-    { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
-    { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
+    { id: "1", file_id: "BQACAgQAAxkBAAPEapgcvkpBkunq0xUMCJPY9Ndj4UAAjQbAAJFEFQtgABGrmyuzMnPQQ", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
+    { id: "2", file_id: "BQACAgQAAxkBAAPIapgf1yRWeDDLEA5Dh8KbaEQBIAAj0NAAKgNLlTg5vOOlI5dPg9BA", title: "መጽሐፈ ዲድስቅልያ" },
     { id: "3", file_id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ" },
     { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
     { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
