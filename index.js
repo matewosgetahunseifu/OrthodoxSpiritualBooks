@@ -287,42 +287,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 5. ADMIN FILE ID GENERATOR (የተስተካከለ)
-// ==========================================
-bot.on(['document', 'photo', 'audio', 'video'], async (ctx, next) => {
-  if (ctx.from && ctx.from.id === ADMIN_ID) {
-    let fileId = "";
-    let fileName = "ፋይል";
-
-    if (ctx.message.document) {
-      fileId = ctx.message.document.file_id;
-      fileName = ctx.message.document.file_name || "Document";
-    } else if (ctx.message.photo) {
-      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
-      fileName = "Photo";
-    } else if (ctx.message.audio) {
-      fileId = ctx.message.audio.file_id;
-      fileName = ctx.message.audio.file_name || "Audio";
-    } else if (ctx.message.video) {
-      fileId = ctx.message.video.file_id;
-      fileName = "Video";
-    }
-
-    if (fileId) {
-      return ctx.reply(
-        `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
-        `📄 **File Name:** \`${fileName}\`\n` +
-        `🆔 **File ID:** \`${fileId}\`\n\n` +
-        `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-  }
-  return next();
-});
-
-// ==========================================
-// 6. COMMANDS & MAIN MENU LOGIC
+// 5. COMMANDS & MAIN MENU LOGIC
 // ==========================================
 bot.start((ctx) => {
   registerUser(ctx.from);
@@ -361,7 +326,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 });
 
 // ==========================================
-// 7. CATEGORY ROUTING & CALLBACK HANDLERS
+// 6. CATEGORY ROUTING & CALLBACK HANDLERS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -535,7 +500,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. BOOK DELIVERY & MONETIZATION LOGIC
+// 7. BOOK DELIVERY & MONETIZATION LOGIC
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -575,6 +540,42 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
   ctx.reply(`📄 የመጽሐፉ ቅምሻ (Preview - ${title})፦\n\nይህ የናሙና ገጽ ነው፤ ሙሉውን መጽሐፍ ለማንበብ እባክዎን ክፍያውን ይፈጽሙ።`, {
     protect_content: true
   });
+});
+
+// ==========================================
+// 8. ADMIN FILE ID GENERATOR (የተስተካከለ - ከአድሚን ብቻ ከሆነ ለይቶ ያስቀራል)
+// ==========================================
+bot.on(['document', 'photo', 'audio', 'video'], async (ctx, next) => {
+  if (ctx.from && ctx.from.id === ADMIN_ID) {
+    let fileId = "";
+    let fileName = "ፋይል";
+
+    if (ctx.message.document) {
+      fileId = ctx.message.document.file_id;
+      fileName = ctx.message.document.file_name || "Document";
+    } else if (ctx.message.photo) {
+      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+      fileName = "Photo";
+    } else if (ctx.message.audio) {
+      fileId = ctx.message.audio.file_id;
+      fileName = ctx.message.audio.file_name || "Audio";
+    } else if (ctx.message.video) {
+      fileId = ctx.message.video.file_id;
+      fileName = "Video";
+    }
+
+    if (fileId) {
+      await ctx.reply(
+        `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
+        `📄 **File Name:** \`${fileName}\`\n` +
+        `🆔 **File ID:** \`${fileId}\`\n\n` +
+        `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
+        { parse_mode: 'Markdown' }
+      );
+      return; // ለአድሚን ስለተላከ ወደ ሪሲት ማጣሪያ እንዲያልፍ አይደረግም
+    }
+  }
+  return next(); // ከተራ ተጠቃሚ ከሆነ ወደ ሪሲት ማጣሪያ ያሳልፈዋል
 });
 
 // ==========================================
