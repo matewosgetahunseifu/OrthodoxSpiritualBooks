@@ -124,7 +124,13 @@ const booksDatabase = {
     { id: "2", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማርቆስ ትርጓሜ" },
     { id: "3", file_id: "BQACAgQAAxkBAANyapersQ98wbYKC8-79MnvYLqhKTAAAmQeAAK225lQS9MwBsORgaI9BA", title: "ወንጌል ዘሉቃድ ትርጓሜ" },
     { id: "4", file_id: "BQACAgQAAxkBAANzapersT-LRq5gCg7KU_3K9e6EKmoAAhkbAAJt8rhSH2tfVI7_W4M9BA", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
-    { id: "5", file_id: "DUMMY_GA_NT_05", title: "ራእየ ዮሐንስ ትርጓሜ" }
+    { id: "5", file_id: "BQACAgQAAxkBAAOBape555kx5chgTM0HuqJivR3bDuQAAg0YAALB61hQCIYaj31GHiw9BA", title: "የሐዋርያት ሥራ ትርጓሜ" }
+    {
+      id:"6", file_id:"BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title:"ሮሜ አንድምታ ትርጓሜ "
+    },
+    {
+      id:"7",file_id:"BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title:"ወደ ሮሜ ንባቡና ትርጓሜ"
+    },
   ],
 
   // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
