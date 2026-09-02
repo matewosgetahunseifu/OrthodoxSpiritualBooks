@@ -130,7 +130,7 @@ const booksDatabase = {
   "amh_law": [
     { id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
     { id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
-    { id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ജീവിതና ሥርዓት" },
+    { id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ሕይወትና ሥርዓት" },
     { id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ" },
     { id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት" }
   ],
@@ -205,7 +205,7 @@ const booksDatabase = {
     { id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
   ],
 
-  // --- 3.5. በእንግሊዝ (English) ---
+  // --- 3.5. In English ---
   "eng_law": [
     { id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
     { id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
@@ -389,9 +389,9 @@ bot.action("lang_amh", (ctx) => {
   ctx.editMessageText(
     "በአማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ሕግና ሥርዓት ", "cat_amh_law")],
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_amh_law")],
       [Markup.button.callback("ታሪክና ድርሳናት", "sub_amh_hist")],
-      [Markup.button.callback("ክርስቲያናዊ ሥነምግባር ", "cat_amh_eth")],
+      [Markup.button.callback("ክርስቲያናዊ ሥነ ምግባር", "cat_amh_eth")],
       [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_amh_bible")],
       [Markup.button.callback("ነገረ ሃይማኖት", "sub_amh_theology")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
@@ -435,7 +435,7 @@ bot.action("sub_amh_theology", (ctx) => {
   );
 });
 
-// --- በእንግሊዝ (English) ---
+// --- In English ---
 bot.action("lang_eng", (ctx) => {
   ctx.editMessageText(
     "Please select a category in English:",
@@ -464,7 +464,7 @@ bot.action("back_to_lang", (ctx) => {
       ],
       [
         Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("By English ", "lang_eng")
+        Markup.button.callback("In English", "lang_eng")
       ]
     ])
   );
@@ -482,7 +482,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
   const buttons = books.map(book => [
     Markup.button.callback(`📖 ${book.title}`, `getbook_${book.id}`)
   ]);
-  
+
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
 
   ctx.editMessageText("ማንበብ የሚፈልጉትን መጽሐፍ ይምረጡ፦", Markup.inlineKeyboard(buttons));
@@ -523,44 +523,66 @@ bot.action(/^preview_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED RECEIPT FILTERING & PROCESSING
+// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
 // ==========================================
-bot.on(['photo', 'document'], async (ctx, next) => {
+bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
 
-  // አድሚን ከሆነ አዲስ መጽሐፍ አፕሎድ ማድረጊያ ሎጂክ ይሰራል።
+  // ----------------------------------------------------
+  // A. እርስዎ (ADMIN) ብቻ ፋይል ሲልኩ ወይም FORWARD ሲያደርጉ
+  // ----------------------------------------------------
   if (userId === ADMIN_ID) {
-    return next();
+    let fileId = "";
+    let fileName = "ፋይል (Photo)";
+
+    if (ctx.message.document) {
+      fileId = ctx.message.document.file_id;
+      fileName = ctx.message.document.file_name || "Document";
+    } else if (ctx.message.photo) {
+      // ከፎቶዎች መካከል ትልቁን ጥራት ያለው መምረጥ
+      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+    }
+
+    return ctx.reply(
+      `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
+      `📄 **File Name:** \`${fileName}\`\n` +
+      `🆔 **File ID:** \`${fileId}\`\n\n` +
+      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ የመጽሐፉ መለያ ማድረግ ይችላሉ።`,
+      { parse_mode: 'Markdown' }
+    );
   }
 
-  // ቀደም ሲል የከፈለ ተጠቃሚ ከሆነ
-  if (isPaidUser(userId)) {
-    return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ።");
-  }
-
+  // ----------------------------------------------------
+  // B. ሌላ ማንኛውም ተጠቃሚ (የከፈለ ወይም ያልከፈለ)
+  // ----------------------------------------------------
   const caption = ctx.message.caption || "";
-  const fileName = ctx.message.document ? ctx.message.document.file_name : "";
-  const fullText = (caption + " " + fileName).toLowerCase();
+  const docName = ctx.message.document ? ctx.message.document.file_name : "";
+  const fullText = (caption + " " + docName).toLowerCase();
 
-  /* 
-     የባንክ ሪሲት መሆናቸውን የሚያረጋግጡ ቁልፍ ቃላት (Keywords)
-  */
+  // የባንክ ሪሲት መሆናቸውን የሚያረጋግጡ ቁልፍ ቃላት
   const validBankKeywords = [
     "cbe", "telebirr", "abyssinia", "ahadu", "bank", 
     "transaction", "ref", "receipt", "transfer", "etb", 
-    "ብር", "ሒሳብ", "ማረጋገጫ", "matewos", "ማቴዎስ", "pdf", "image"
+    "ብር", "ሒሳብ", "ማረጋገጫ", "matewos", "ማቴዎስ", "pdf"
   ];
 
-  // ፎቶ ወይም ዶክመንት ሲላክ ሪሲት መሆኑን በቴክስት/Caption/FileName ማረጋገጥ
-  const isValidReceipt = validBankKeywords.some(keyword => fullText.includes(keyword)) || ctx.message.photo;
+  const hasKeyword = validBankKeywords.some(keyword => fullText.includes(keyword));
+  const isPhotoReceipt = !!ctx.message.photo; // ፎቶ ከሆነ ሪሲት የመሆን ዕድሉ ከፍተኛ ነው
 
-  // 1. የባንክ ሪሲት ካልሆነ ፎቶውን ዲሊት አድርጎ ማስጠንቀቂያ መስጠት
+  const isValidReceipt = hasKeyword || isPhotoReceipt;
+
+  // 1. የባንክ ሪሲት ካልሆነ መልእክቱን ወዲያውኑ DELETE ማድረግ
   if (!isValidReceipt) {
     ctx.deleteMessage().catch(() => {});
-    return ctx.reply("⚠️ እባክዎን ትክክለኛ የከፈሉበትን የባንክ ሪሲት ብቻ ይላኩ!");
+    return ctx.reply("⚠️ እባክዎን ትክክለኛ የከፈሉበትን የባንክ ሪሲት (Receipt Photo/Document) ብቻ ይላኩ! ሌሎች ፋይሎች አይፈቀዱም።");
   }
 
-  // 2. ሪሲት ከሆነ ቀጥታ ወደ አድሚን ማስተላለፍ
+  // 2. ቀደም ሲል የከፈለ ተጠቃሚ ከሆነ
+  if (isPaidUser(userId)) {
+    return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
+  }
+
+  // 3. የባንክ ሪሲት ከሆነ ቀጥታ ወደ አድሚን Forward ማድረግ
   const forwardedMsg = await ctx.telegram.forwardMessage(
     ADMIN_ID,
     ctx.chat.id,
@@ -713,18 +735,6 @@ bot.command('backup', (ctx) => {
     source: Buffer.from(backupData, 'utf-8'),
     filename: `database_backup_${Date.now()}.json`
   }, { caption: "📦 የዳታቤዝ ባካፕ ፋይል" });
-});
-
-// Admin Document Upload (Auto-Loop Add Book)
-bot.on('document', async (ctx, next) => {
-  if (ctx.from.id !== ADMIN_ID) return next();
-
-  const fileId = ctx.message.document.file_id;
-  const fileName = ctx.message.document.file_name;
-
-  ctx.reply(`📥 አዲስ ፋይል ደርሷል።\n\nFile ID: \`${fileId}\`\nFile Name: ${fileName}\n\nይህንን ፋይል ወደ ዳታቤዝ ለማስገባት በኮዱ ውስጥ 'booksDatabase' ላይ ያካቱት።`, {
-    parse_mode: 'Markdown'
-  });
 });
 
 // ==========================================
