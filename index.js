@@ -191,7 +191,7 @@ const booksDatabase = {
     { id: "5", file_id: "DUMMY_AMH_STD_05", title: "የትንቢት መጻሕፍት ጥናት" }
   ],
   "amh_chr": [
-    { id: "1", file_id: "DUMMY_AMH_CHR_01", title: "ነገረ ክርስቶስ ትምህርት 1" },
+    { id: "1", file_id: "BQACAgQAAxkBAAMuapeKeQL2zvehmKt3MO2gUxGVZvQAAmEZAAL-iRFSUPgwjQABaU7tPQQ", title: "ነገረ ክርስቶስ መ/ር በትረ ማርያም" },
     { id: "2", file_id: "DUMMY_AMH_CHR_02", title: "ነገረ ክርስቶስ ትምህርት 2" },
     { id: "3", file_id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3" },
     { id: "4", file_id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4" },
