@@ -11,7 +11,6 @@ const PORT = process.env.PORT || 3000;
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// Uncaught Errors አፕሊኬሽኑን እንዳይዘጉ የሚከላከል
 process.on('uncaughtException', (err) => {
   console.error('There was an uncaught error:', err);
 });
@@ -20,10 +19,9 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// In-Memory Database
 const db = {
-  users: {}, // user_id: { username, is_paid, registration_date, last_page_read }
-  pendingReceipts: {} // message_id: { userId, orderNumber }
+  users: {}, 
+  pendingReceipts: {} 
 };
 
 // ==========================================
@@ -38,7 +36,6 @@ app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
 
-// የ3 ደቂቃ Ping ሎጂክ (Render እንዳይተኛ)
 setInterval(async () => {
   const serverUrl = process.env.RENDER_EXTERNAL_URL;
   if (serverUrl) {
@@ -53,209 +50,210 @@ setInterval(async () => {
 }, 3 * 60 * 1000);
 
 // ==========================================
-// 3. BOOKS DATABASE
+// 3. BOOKS DATABASE (አሁን ረጅም File ID ማስገባት ትችላላችሁ)
 // ==========================================
 const booksDatabase = {
   // --- 3.1. በግዕዝ ---
   "geez_law": [
-    { id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
+    { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
+    { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
+    { id: "3", file_id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)" },
+    { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
+    { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
   ],
   "geez_hist": [
-    { id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_HIST_03", title: "ታሪከ ነገሥት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
+    { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
+    { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
+    { id: "3", file_id: "DUMMY_GEEZ_HIST_03", title: "ታሪከ ነገሥት (ግዕዝ)" },
+    { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
+    { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
   ],
   "geez_gdsl": [
-    { id: "DUMMY_GEEZ_GDSL_01", title: "ድርሳነ ሚካኤል (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_GDSL_02", title: "ድርሳነ ገብርኤል (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_GDSL_03", title: "ተአምረ ማርያም (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_GDSL_04", title: "ገድለ ተክለ ሃይማኖት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
+    { id: "1", file_id: "DUMMY_GEEZ_GDSL_01", title: "ድርሳነ ሚካኤል (ግዕዝ)" },
+    { id: "2", file_id: "DUMMY_GEEZ_GDSL_02", title: "ድርሳነ ገብርኤል (ግዕዝ)" },
+    { id: "3", file_id: "DUMMY_GEEZ_GDSL_03", title: "ተአምረ ማርያም (ግዕዝ)" },
+    { id: "4", file_id: "DUMMY_GEEZ_GDSL_04", title: "ገድለ ተክለ ሃይማኖት (ግዕዝ)" },
+    { id: "5", file_id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
   ],
   "geez_ot": [
-    { id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
-    { id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_OT_03", title: "መጽሐፈ መዝሙር (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
+    { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
+    { id: "3", file_id: "DUMMY_GEEZ_OT_03", title: "መጽሐፈ መዝሙር (ግዕዝ)" },
+    { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
+    { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
   ],
   "geez_nt": [
-    { id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
-    { id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_NT_03", title: "ግብረ ሐዋርያት (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
-    { id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
+    { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
+    { id: "3", file_id: "DUMMY_GEEZ_NT_03", title: "ግብረ ሐዋርያት (ግዕዝ)" },
+    { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
+    { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
   ],
 
   // --- 3.2. በግዕዝ አማርኛ ---
   "ga_law": [
-    { id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
-    { id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ" },
-    { id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
-    { id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
+    { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
+    { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
+    { id: "3", file_id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ" },
+    { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
+    { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
   ],
   "ga_hist": [
-    { id: "DUMMY_GA_HIST_01", title: "ዜና አይሁድ ትርጓሜ" },
-    { id: "DUMMY_GA_HIST_02", title: "መጽሐፈ አክሱም ትርጓሜ" },
-    { id: "DUMMY_GA_HIST_03", title: "ታሪከ ነገሥት ዘኢትዮጵያ" },
-    { id: "DUMMY_GA_HIST_04", title: "ዜና እስክንድር ትርጓሜ" },
-    { id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_HIST_01", title: "ዜና አይሁድ ትርጓሜ" },
+    { id: "2", file_id: "DUMMY_GA_HIST_02", title: "መጽሐፈ አክሱም ትርጓሜ" },
+    { id: "3", file_id: "DUMMY_GA_HIST_03", title: "ታሪከ ነገሥት ዘኢትዮጵያ" },
+    { id: "4", file_id: "DUMMY_GA_HIST_04", title: "ዜና እስክንድር ትርጓሜ" },
+    { id: "5", file_id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ" }
   ],
   "ga_gdsl": [
-    { id: "DUMMY_GA_GDSL_01", title: "ድርሳነ ሚካኤል ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_GDSL_02", title: "ድርሳነ ገብርኤል ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_GDSL_03", title: "ተአምረ ማርያም ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_GDSL_04", title: "ገድለ ተክለ ሃይማኖት ትርጓሜ" },
-    { id: "DUMMY_GA_GDSL_05", title: "ገድለ ጊዮርጊስ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_GDSL_01", title: "ድርሳነ ሚካኤል ንባቡና ትርጓሜው" },
+    { id: "2", file_id: "DUMMY_GA_GDSL_02", title: "ድርሳነ ገብርኤል ንባቡና ትርጓሜው" },
+    { id: "3", file_id: "DUMMY_GA_GDSL_03", title: "ተአምረ ማርያም ንባቡና ትርጓሜው" },
+    { id: "4", file_id: "DUMMY_GA_GDSL_04", title: "ገድለ ተክለ ሃይማኖት ትርጓሜ" },
+    { id: "5", file_id: "DUMMY_GA_GDSL_05", title: "ገድለ ጊዮርጊስ ትርጓሜ" }
   ],
   "ga_ot": [
-    { id: "DUMMY_GA_OT_01", title: "ኦሪት ዘፍጥረት ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_OT_02", title: "ኦሪት ዘጸአት ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_OT_03", title: "መዝሙረ ዳዊት ንባቡና ትርጓሜው" },
-    { id: "DUMMY_GA_OT_04", title: "መጽሐፈ ኢሳይያስ ትርጓሜ" },
-    { id: "DUMMY_GA_OT_05", title: "መጽሐፈ ምሳሌ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_OT_01", title: "ኦሪት ዘፍጥረት ንባቡና ትርጓሜው" },
+    { id: "2", file_id: "DUMMY_GA_OT_02", title: "ኦሪት ዘጸአት ንባቡና ትርጓሜው" },
+    { id: "3", file_id: "DUMMY_GA_OT_03", title: "መዝሙረ ዳዊት ንባቡና ትርጓሜው" },
+    { id: "4", file_id: "DUMMY_GA_OT_04", title: "መጽሐፈ ኢሳይያስ ትርጓሜ" },
+    { id: "5", file_id: "DUMMY_GA_OT_05", title: "መጽሐፈ ምሳሌ ትርጓሜ" }
   ],
   "ga_nt": [
-    { id: "DUMMY_GA_NT_01", title: "ወንጌል ዘማቴዎስ ትርጓሜ" },
-    { id: "DUMMY_GA_NT_02", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
-    { id: "DUMMY_GA_NT_03", title: "ግብረ ሐዋርያት ትርጓሜ" },
-    { id: "DUMMY_GA_NT_04", title: "መልእክተ ጳውሎስ ትርጓሜ" },
-    { id: "DUMMY_GA_NT_05", title: "ራእየ ዮሐንስ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_NT_01", title: "ወንጌል ዘማቴዎስ ትርጓሜ" },
+    { id: "2", file_id: "DUMMY_GA_NT_02", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
+    { id: "3", file_id: "DUMMY_GA_NT_03", title: "ግብረ ሐዋርያት ትርጓሜ" },
+    { id: "4", file_id: "DUMMY_GA_NT_04", title: "መልእክተ ጳውሎስ ትርጓሜ" },
+    { id: "5", file_id: "DUMMY_GA_NT_05", title: "ራእየ ዮሐንስ ትርጓሜ" }
   ],
 
   // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
   "geez_edu": [
     { 
-      id: "BQACAgQAAxkBAAMQapdxmNt2UHnzrQim-4cLtqskVeoAAqofAAI12zhQxSRCSEyXyN89BA", 
+      id: "1", 
+      file_id: "BQACAgQAAxkBAAMQapdxmNt2UHnzrQim-4cLtqskVeoAAqofAAI12zhQxSRCSEyXyN89BA", 
       title: "መጽሐፈ፡ሰዋስው፡ወግስ፡ወመዝገበ፡ቃላት፡ሐዲስ" 
     },
-    { id: "DUMMY_GEEZ_EDU_02", title: "የሰዋስው ወሰወሰ ግዕዝ" },
-    { id: "DUMMY_GEEZ_EDU_03", title: "መዝገበ ቃላት ግዕዝ-አማርኛ" },
-    { id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
-    { id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
+    { id: "2", file_id: "DUMMY_GEEZ_EDU_02", title: "የሰዋስው ወሰወሰ ግዕዝ" },
+    { id: "3", file_id: "DUMMY_GEEZ_EDU_03", title: "መዝገበ ቃላት ግዕዝ-አማርኛ" },
+    { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
+    { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
   ],
 
   // --- 3.4. በአማርኛ ---
   "amh_law": [
-    { id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
-    { id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
-    { id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ሕይወትና ሥርዓት" },
-    { id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ" },
-    { id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት" }
+    { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
+    { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
+    { id: "3", file_id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ሕይወትና ሥርዓት" },
+    { id: "4", file_id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ" },
+    { id: "5", file_id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት" }
   ],
   "amh_hist": [
-    { id: "DUMMY_AMH_HIST_01", title: "የኢትዮጵያ ቤተ ክርስቲያን ታሪክ" },
-    { id: "DUMMY_AMH_HIST_02", title: "የዓለም ቤተ ክርስቲያን ታሪክ" },
-    { id: "DUMMY_AMH_HIST_03", title: "የታሪከ ነገሥት ማጠቃለያ" },
-    { id: "DUMMY_AMH_HIST_04", title: "የቅዱሳን አበው ታሪክ" },
-    { id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ" }
+    { id: "1", file_id: "DUMMY_AMH_HIST_01", title: "የኢትዮጵያ ቤተ ክርስቲያን ታሪክ" },
+    { id: "2", file_id: "DUMMY_AMH_HIST_02", title: "የዓለም ቤተ ክርስቲያን ታሪክ" },
+    { id: "3", file_id: "DUMMY_AMH_HIST_03", title: "የታሪከ ነገሥት ማጠቃለያ" },
+    { id: "4", file_id: "DUMMY_AMH_HIST_04", title: "የቅዱሳን አበው ታሪክ" },
+    { id: "5", file_id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ" }
   ],
   "amh_gdsl": [
-    { id: "DUMMY_AMH_GDSL_01", title: "ድርሳነ ሚካኤል በአማርኛ" },
-    { id: "DUMMY_AMH_GDSL_02", title: "ድርሳነ ገብርኤል በአማርኛ" },
-    { id: "DUMMY_AMH_GDSL_03", title: "ተአምረ ማርያም በአማርኛ" },
-    { id: "DUMMY_AMH_GDSL_04", title: "ገድለ ተክለ ሃይማኖት በአማርኛ" },
-    { id: "DUMMY_AMH_GDSL_05", title: "ገድለ ጊዮርጊስ በአማርኛ" }
+    { id: "1", file_id: "DUMMY_AMH_GDSL_01", title: "ድርሳነ ሚካኤል በአማርኛ" },
+    { id: "2", file_id: "DUMMY_AMH_GDSL_02", title: "ድርሳነ ገብርኤል በአማርኛ" },
+    { id: "3", file_id: "DUMMY_AMH_GDSL_03", title: "ተአምረ ማርያም በአማርኛ" },
+    { id: "4", file_id: "DUMMY_AMH_GDSL_04", title: "ገድለ ተክለ ሃይማኖት በአማርኛ" },
+    { id: "5", file_id: "DUMMY_AMH_GDSL_05", title: "ገድለ ጊዮርጊስ በአማርኛ" }
   ],
   "amh_eth": [
-    { id: "DUMMY_AMH_ETH_01", title: "ክርስቲያናዊ ሥነ ምግባር" },
-    { id: "DUMMY_AMH_ETH_02", title: "የሕይወት ጎዳና" },
-    { id: "DUMMY_AMH_ETH_03", title: "የበጎ አድራጎት ትምህርት" },
-    { id: "DUMMY_AMH_ETH_04", title: "የትህትናና የፍቅር ሕይወት" },
-    { id: "DUMMY_AMH_ETH_05", title: "የቤተሰብ ክርስቲያናዊ መመሪያ" }
+    { id: "1", file_id: "DUMMY_AMH_ETH_01", title: "ክርስቲያናዊ ሥነ ምግባር" },
+    { id: "2", file_id: "DUMMY_AMH_ETH_02", title: "የሕይወት ጎዳና" },
+    { id: "3", file_id: "DUMMY_AMH_ETH_03", title: "የበጎ አድራጎት ትምህርት" },
+    { id: "4", file_id: "DUMMY_AMH_ETH_04", title: "የትህትናና የፍቅር ሕይወት" },
+    { id: "5", file_id: "DUMMY_AMH_ETH_05", title: "የቤተሰብ ክርስቲያናዊ መመሪያ" }
   ],
   "amh_ot": [
-    { id: "DUMMY_AMH_OT_01", title: "ኦሪት ዘፍጥረት በአማርኛ" },
-    { id: "DUMMY_AMH_OT_02", title: "ኦሪት ዘጸአት በአማርኛ" },
-    { id: "DUMMY_AMH_OT_03", title: "መዝሙረ ዳዊት በአማርኛ" },
-    { id: "DUMMY_AMH_OT_04", title: "መጽሐፈ ኢሳይያስ በአማርኛ" },
-    { id: "DUMMY_AMH_OT_05", title: "መጽሐፈ ምሳሌ በአማርኛ" }
+    { id: "1", file_id: "DUMMY_AMH_OT_01", title: "ኦሪት ዘፍጥረት በአማርኛ" },
+    { id: "2", file_id: "DUMMY_AMH_OT_02", title: "ኦሪት ዘጸአት በአማርኛ" },
+    { id: "3", file_id: "DUMMY_AMH_OT_03", title: "መዝሙረ ዳዊት በአማርኛ" },
+    { id: "4", file_id: "DUMMY_AMH_OT_04", title: "መጽሐፈ ኢሳይያስ በአማርኛ" },
+    { id: "5", file_id: "DUMMY_AMH_OT_05", title: "መጽሐፈ ምሳሌ በአማርኛ" }
   ],
   "amh_nt": [
-    { id: "DUMMY_AMH_NT_01", title: "የቅዱስ ማቴዎስ ወንጌል" },
-    { id: "DUMMY_AMH_NT_02", title: "የቅዱስ ዮሐንስ ወንጌል" },
-    { id: "DUMMY_AMH_NT_03", title: "የሐዋርያት ሥራ" },
-    { id: "DUMMY_AMH_NT_04", title: "የቅዱስ ጳውሎስ መልእክት" },
-    { id: "DUMMY_AMH_NT_05", title: "የቅዱስ ዮሐንስ ራእይ" }
+    { id: "1", file_id: "DUMMY_AMH_NT_01", title: "የቅዱስ ማቴዎስ ወንጌል" },
+    { id: "2", file_id: "DUMMY_AMH_NT_02", title: "የቅዱስ ዮሐንስ ወንጌል" },
+    { id: "3", file_id: "DUMMY_AMH_NT_03", title: "የሐዋርያት ሥራ" },
+    { id: "4", file_id: "DUMMY_AMH_NT_04", title: "የቅዱስ ጳውሎስ መልእክት" },
+    { id: "5", file_id: "DUMMY_AMH_NT_05", title: "የቅዱስ ዮሐንስ ራእይ" }
   ],
   "amh_std": [
-    { id: "DUMMY_AMH_STD_01", title: "የመጽሐፍ ቅዱስ ጥናት መመሪያ" },
-    { id: "DUMMY_AMH_STD_02", title: "የመጽሐፍ ቅዱስ መዝገበ ቃላት" },
-    { id: "DUMMY_AMH_STD_03", title: "የብሉይ ኪዳን ጥናት" },
-    { id: "DUMMY_AMH_STD_04", title: "የአዲስ ኪዳን ጥናት" },
-    { id: "DUMMY_AMH_STD_05", title: "የትንቢት መጻሕፍት ጥናት" }
+    { id: "1", file_id: "DUMMY_AMH_STD_01", title: "የመጽሐፍ ቅዱስ ጥናት መመሪያ" },
+    { id: "2", file_id: "DUMMY_AMH_STD_02", title: "የመጽሐፍ ቅዱስ መዝገበ ቃላት" },
+    { id: "3", file_id: "DUMMY_AMH_STD_03", title: "የብሉይ ኪዳን ጥናት" },
+    { id: "4", file_id: "DUMMY_AMH_STD_04", title: "የአዲስ ኪዳን ጥናት" },
+    { id: "5", file_id: "DUMMY_AMH_STD_05", title: "የትንቢት መጻሕፍት ጥናት" }
   ],
   "amh_chr": [
-    { id: "DUMMY_AMH_CHR_01", title: "ነገረ ክርስቶስ ትምህርት 1" },
-    { id: "DUMMY_AMH_CHR_02", title: "ነገረ ክርስቶስ ትምህርት 2" },
-    { id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3" },
-    { id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4" },
-    { id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5" }
+    { id: "1", file_id: "DUMMY_AMH_CHR_01", title: "ነገረ ክርስቶስ ትምህርት 1" },
+    { id: "2", file_id: "DUMMY_AMH_CHR_02", title: "ነገረ ክርስቶስ ትምህርት 2" },
+    { id: "3", file_id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3" },
+    { id: "4", file_id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4" },
+    { id: "5", file_id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5" }
   ],
   "amh_mry": [
-    { id: "BQACAgQAAxkBAAMcapd9mbw5iHKJf-7Y1JPbLh2sGTMAAvEKAAIn8NhRpbFmUy6n4sw9BA", title: "ነገረ ማርያም በሐዲስ ኪዳን Dr ሮዳስ ታደሰ" },
-    { id: "DUMMY_AMH_MRY_02", title: "ነገረ ማርያም ትምህርት 2" },
-    { id: "DUMMY_AMH_MRY_03", title: "ነገረ ማርያም ትምህርት 3" },
-    { id: "DUMMY_AMH_MRY_04", title: "ነገረ ማርያም ትምህርት 4" },
-    { id: "DUMMY_AMH_MRY_05", title: "ነገረ ማርያም ትምህርት 5" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMcapd9mbw5iHKJf-7Y1JPbLh2sGTMAAvEKAAIn8NhRpbFmUy6n4sw9BA", title: "ነገረ ማርያም በሐዲስ ኪዳን Dr ሮዳስ ታደሰ" },
+    { id: "2", file_id: "DUMMY_AMH_MRY_02", title: "ነገረ ማርያም ትምህርት 2" },
+    { id: "3", file_id: "DUMMY_AMH_MRY_03", title: "ነገረ ማርያም ትምህርት 3" },
+    { id: "4", file_id: "DUMMY_AMH_MRY_04", title: "ነገረ ማርያም ትምህርት 4" },
+    { id: "5", file_id: "DUMMY_AMH_MRY_05", title: "ነገረ ማርያም ትምህርት 5" }
   ],
   "amh_snt": [
-    { id: "DUMMY_AMH_SNT_01", title: "ነገረ ቅዱሳን ትምህርት 1" },
-    { id: "DUMMY_AMH_SNT_02", title: "ነገረ ቅዱሳን ትምህርት 2" },
-    { id: "DUMMY_AMH_SNT_03", title: "ነገረ ቅዱሳን ትምህርት 3" },
-    { id: "DUMMY_AMH_SNT_04", title: "ነገረ ቅዱሳን ትምህርት 4" },
-    { id: "DUMMY_AMH_SNT_05", title: "ነገረ ቅዱሳን ትምህርት 5" }
+    { id: "1", file_id: "DUMMY_AMH_SNT_01", title: "ነገረ ቅዱሳን ትምህርት 1" },
+    { id: "2", file_id: "DUMMY_AMH_SNT_02", title: "ነገረ ቅዱሳን ትምህርት 2" },
+    { id: "3", file_id: "DUMMY_AMH_SNT_03", title: "ነገረ ቅዱሳን ትምህርት 3" },
+    { id: "4", file_id: "DUMMY_AMH_SNT_04", title: "ነገረ ቅዱሳን ትምህርት 4" },
+    { id: "5", file_id: "DUMMY_AMH_SNT_05", title: "ነገረ ቅዱሳን ትምህርት 5" }
   ],
   "amh_thl": [
-    { id: "DUMMY_AMH_THL_01", title: "የሃይማኖት መሠረት 1" },
-    { id: "DUMMY_AMH_THL_02", title: "የሃይማኖት መሠረት 2" },
-    { id: "DUMMY_AMH_THL_03", title: "የሃይማኖት መሠረት 3" },
-    { id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4" },
-    { id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
+    { id: "1", file_id: "DUMMY_AMH_THL_01", title: "የሃይማኖት መሠረት 1" },
+    { id: "2", file_id: "DUMMY_AMH_THL_02", title: "የሃይማኖት መሠረት 2" },
+    { id: "3", file_id: "DUMMY_AMH_THL_03", title: "የሃይማኖት መሠረት 3" },
+    { id: "4", file_id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4" },
+    { id: "5", file_id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
   ],
 
   // --- 3.5. In English ---
   "eng_law": [
-    { id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
-    { id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
-    { id: "DUMMY_ENG_LAW_03", title: "The Didascalia (English)" },
-    { id: "DUMMY_ENG_LAW_04", title: "Liturgy and Order" },
-    { id: "DUMMY_ENG_LAW_05", title: "Ecclesiastical Canons" }
+    { id: "1", file_id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
+    { id: "2", file_id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
+    { id: "3", file_id: "DUMMY_ENG_LAW_03", title: "The Didascalia (English)" },
+    { id: "4", file_id: "DUMMY_ENG_LAW_04", title: "Liturgy and Order" },
+    { id: "5", file_id: "DUMMY_ENG_LAW_05", title: "Ecclesiastical Canons" }
   ],
   "eng_hist": [
-    { id: "DUMMY_ENG_HIST_01", title: "History of Ethiopian Church" },
-    { id: "DUMMY_ENG_HIST_02", title: "Kebra Nagast (English)" },
-    { id: "DUMMY_ENG_HIST_03", title: "Lives of Ethiopian Saints" },
-    { id: "DUMMY_ENG_HIST_04", title: "Chronicles of Kings" },
-    { id: "DUMMY_ENG_HIST_05", title: "Ancient Aksum History" }
+    { id: "1", file_id: "DUMMY_ENG_HIST_01", title: "History of Ethiopian Church" },
+    { id: "2", file_id: "DUMMY_ENG_HIST_02", title: "Kebra Nagast (English)" },
+    { id: "3", file_id: "DUMMY_ENG_HIST_03", title: "Lives of Ethiopian Saints" },
+    { id: "4", file_id: "DUMMY_ENG_HIST_04", title: "Chronicles of Kings" },
+    { id: "5", file_id: "DUMMY_ENG_HIST_05", title: "Ancient Aksum History" }
   ],
   "eng_eth": [
-    { id: "DUMMY_ENG_ETH_01", title: "Orthodox Christian Ethics" },
-    { id: "DUMMY_ENG_ETH_02", title: "Path to Holiness" },
-    { id: "DUMMY_ENG_ETH_03", title: "Spiritual Discipline" },
-    { id: "DUMMY_ENG_ETH_04", title: "Christian Virtues" },
-    { id: "DUMMY_ENG_ETH_05", title: "Family and Faith" }
+    { id: "1", file_id: "DUMMY_ENG_ETH_01", title: "Orthodox Christian Ethics" },
+    { id: "2", file_id: "DUMMY_ENG_ETH_02", title: "Path to Holiness" },
+    { id: "3", file_id: "DUMMY_ENG_ETH_03", title: "Spiritual Discipline" },
+    { id: "4", file_id: "DUMMY_ENG_ETH_04", title: "Christian Virtues" },
+    { id: "5", file_id: "DUMMY_ENG_ETH_05", title: "Family and Faith" }
   ],
   "eng_ot": [
-    { id: "DUMMY_ENG_OT_01", title: "Book of Genesis (English)" },
-    { id: "DUMMY_ENG_OT_02", title: "Book of Exodus (English)" },
-    { id: "DUMMY_ENG_OT_03", title: "Psalms of David" },
-    { id: "DUMMY_ENG_OT_04", title: "Book of Enoch" },
-    { id: "DUMMY_ENG_OT_05", title: "Book of Jubilees" }
+    { id: "1", file_id: "DUMMY_ENG_OT_01", title: "Book of Genesis (English)" },
+    { id: "2", file_id: "DUMMY_ENG_OT_02", title: "Book of Exodus (English)" },
+    { id: "3", file_id: "DUMMY_ENG_OT_03", title: "Psalms of David" },
+    { id: "4", file_id: "DUMMY_ENG_OT_04", title: "Book of Enoch" },
+    { id: "5", file_id: "DUMMY_ENG_OT_05", title: "Book of Jubilees" }
   ],
   "eng_thl": [
-    { id: "DUMMY_ENG_THL_01", title: "Orthodox Theology Basics" },
-    { id: "DUMMY_ENG_THL_02", title: "Mariology in Tradition" },
-    { id: "DUMMY_ENG_THL_03", title: "Christology Principles" },
-    { id: "DUMMY_ENG_THL_04", title: "The Holy Sacraments" },
-    { id: "DUMMY_ENG_THL_05", title: "Dogmatic Theology" }
+    { id: "1", file_id: "DUMMY_ENG_THL_01", title: "Orthodox Theology Basics" },
+    { id: "2", file_id: "DUMMY_ENG_THL_02", title: "Mariology in Tradition" },
+    { id: "3", file_id: "DUMMY_ENG_THL_03", title: "Christology Principles" },
+    { id: "4", file_id: "DUMMY_ENG_THL_04", title: "The Holy Sacraments" },
+    { id: "5", file_id: "DUMMY_ENG_THL_05", title: "Dogmatic Theology" }
   ]
 };
 
@@ -276,6 +274,12 @@ function registerUser(from) {
       last_page_read: 0
     };
   }
+}
+
+// መጽሐፍ በ Category እና ID ፍለጋ
+function findBook(catKey, bookId) {
+  if (!booksDatabase[catKey]) return null;
+  return booksDatabase[catKey].find(b => b.id === bookId);
 }
 
 const mainKeyboard = Markup.keyboard([
@@ -488,8 +492,9 @@ bot.action(/^cat_(.+)$/, (ctx) => {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
 
+  // አጭር callback_data፦ gbook_CATKEY_ID
   const buttons = books.map((book, index) => [
-    Markup.button.callback(`${index + 1}. ${book.title}`, `getbook_${book.id}`)
+    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${catKey}_${book.id}`)
   ]);
 
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
@@ -500,30 +505,42 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 // ==========================================
 // 7. BOOK DELIVERY & MONETIZATION LOGIC
 // ==========================================
-bot.action(/^getbook_(.+)$/, (ctx) => {
-  const fileId = ctx.match[1];
+bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
+  const catKey = ctx.match[1];
+  const bookId = ctx.match[2];
   const userId = ctx.from.id;
+
+  const book = findBook(catKey, bookId);
+
+  if (!book) {
+    return ctx.answerCbQuery("መጽሐፉ አልተገኘም።", { show_alert: true });
+  }
 
   if (!isPaidUser(userId)) {
     return ctx.reply(
       `የኦርቶዶክስ መንፈሳዊ መጽሐፍት\n\nሁሉንም የመጽሐፍ ዓይነቶች (በግዕዝ፣ በአማርኛ፣ በግዕዝ አማርኛ፣ የግዕዝ ቋንቋ) ሙሉ በሙሉ ለመጠቀም 200 (ሁለት መቶ) ብር አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\nክፍያ እንደፈጸሙ የባንክ ሪሲት (Receipt Photo/Document) ወደዚህ ቦት ይላኩ።`,
       Markup.inlineKeyboard([
-        [Markup.button.callback("👁 ቅምሻ / Preview", `preview_${fileId}`)]
+        [Markup.button.callback("👁 ቅምሻ / Preview", `prev_${catKey}_${bookId}`)]
       ])
     );
   }
 
-  ctx.replyWithDocument(fileId, {
-    caption: "መልካም ንባብ! (ይህ መጽሐፍ የመጠበቅ መብቱ የተጠበቀ ስለሆነ ማስተላለፍ (Forward) አይቻልም)",
+  ctx.replyWithDocument(book.file_id, {
+    caption: `📖 ${book.title}\n\nመልካም ንባብ! (ይህ መጽሐፍ የመጠበቅ መብቱ የተጠበቀ ስለሆነ ማስተላለፍ (Forward) አይቻልም)`,
     protect_content: true
   }).catch(() => {
-    ctx.reply(`📖 የመጽሐፉ Dummy ID: ${fileId}\n(በእውነተኛ ሰርቨር ላይ ፋይሉ ይላካል)`);
+    ctx.reply(`📖 የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ በቴሌግራም ላይ አልተገኘም ወይም File ID ስህተት ነው)`);
   });
 });
 
-bot.action(/^preview_(.+)$/, (ctx) => {
-  const fileId = ctx.match[1];
-  ctx.reply(`📄 የመጽሐፉ ቅምሻ (Preview - የመጀመሪያዎቹ 2-3 ገጾች)፦\n\nይህ የናሙና ገጽ ነው [File ID: ${fileId}]። ሙሉውን መጽሐፍ ለማንበብ እባክዎን ክፍያውን ይፈጽሙ።`, {
+bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
+  const catKey = ctx.match[1];
+  const bookId = ctx.match[2];
+  const book = findBook(catKey, bookId);
+
+  const title = book ? book.title : "መጽሐፍ";
+
+  ctx.reply(`📄 የመጽሐፉ ቅምሻ (Preview - ${title})፦\n\nይህ የናሙና ገጽ ነው፤ ሙሉውን መጽሐፍ ለማንበብ እባክዎን ክፍያውን ይፈጽሙ።`, {
     protect_content: true
   });
 });
@@ -549,7 +566,7 @@ bot.on(['photo', 'document'], async (ctx) => {
       `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
       `📄 **File Name:** \`${fileName}\`\n` +
       `🆔 **File ID:** \`${fileId}\`\n\n` +
-      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ የመጽሐፉ መለያ ማድረግ ይችላሉ።`,
+      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
       { parse_mode: 'Markdown' }
     );
   }
@@ -662,10 +679,10 @@ bot.on('text', (ctx) => {
   const query = text.trim().toLowerCase();
   let matches = [];
 
-  Object.keys(booksDatabase).forEach(cat => {
-    booksDatabase[cat].forEach(book => {
+  Object.keys(booksDatabase).forEach(catKey => {
+    booksDatabase[catKey].forEach(book => {
       if (book.title.toLowerCase().includes(query)) {
-        matches.push(book);
+        matches.push({ ...book, catKey });
       }
     });
   });
@@ -675,7 +692,7 @@ bot.on('text', (ctx) => {
   }
 
   const buttons = matches.map((book, index) => [
-    Markup.button.callback(`${index + 1}. ${book.title}`, `getbook_${book.id}`)
+    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.catKey}_${book.id}`)
   ]);
 
   ctx.reply(`🔍 የፍለጋ ውጤቶች (${matches.length} ተገኝተዋል)፦`, Markup.inlineKeyboard(buttons));
@@ -752,9 +769,8 @@ bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
 });
 
-// Bot Launch
 bot.launch({
-  dropPendingUpdates: true // የቆዩ ጥያቄዎች እንዳያጣብቁት
+  dropPendingUpdates: true
 }).then(() => {
   console.log("Bot is running successfully...");
 }).catch((err) => {
