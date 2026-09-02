@@ -15,7 +15,7 @@ const bot = new Telegraf(BOT_TOKEN);
 // In-Memory Database
 const db = {
   users: {}, // user_id: { username, is_paid, registration_date, last_page_read }
-  pendingReceipts: {} // message_id: user_id
+  pendingReceipts: {} // message_id: { userId, orderNumber }
 };
 
 // ==========================================
@@ -40,7 +40,7 @@ setInterval(() => {
 }, 3 * 60 * 1000);
 
 // ==========================================
-// 3. BOOKS DATABASE (5 Sample Books Per Category)
+// 3. BOOKS DATABASE
 // ==========================================
 const booksDatabase = {
   // --- 3.1. በግዕዝ ---
@@ -66,14 +66,14 @@ const booksDatabase = {
     { id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
   ],
   "geez_ot": [
-    { id: "DUMMY_GEEZ_OT_01", title: "ኦሪት ዘፍጥረት (ግዕዝ)" },
+    { id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
     { id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
     { id: "DUMMY_GEEZ_OT_03", title: "መጽሐፈ መዝሙር (ግዕዝ)" },
     { id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
     { id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
   ],
   "geez_nt": [
-    { id: "DUMMY_GEEZ_NT_01", title: "ወንጌል ዘማቴዎስ (ግዕዝ)" },
+    { id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
     { id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
     { id: "DUMMY_GEEZ_NT_03", title: "ግብረ ሐዋርያት (ግዕዝ)" },
     { id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
@@ -119,7 +119,10 @@ const booksDatabase = {
 
   // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
   "geez_edu": [
-    { id: "DUMMY_GEEZ_EDU_01", title: "የግዕዝ ቋንቋ መማሪያ መጽሐፍ" },
+    { 
+      id: "BQACAgQAAxkBAAMQapdxmNt2UHnzrQim-4cLtqskVeoAAqofAAI12zhQxSRCSEyXyN89BA", 
+      title: "መጽሐፈ፡ሰዋስው፡ወግስ፡ወመዝገበ፡ቃላት፡ሐዲስ" 
+    },
     { id: "DUMMY_GEEZ_EDU_02", title: "የሰዋስው ወሰወሰ ግዕዝ" },
     { id: "DUMMY_GEEZ_EDU_03", title: "መዝገበ ቃላት ግዕዝ-አማርኛ" },
     { id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
@@ -184,7 +187,7 @@ const booksDatabase = {
     { id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5" }
   ],
   "amh_mry": [
-    { id: "DUMMY_AMH_MRY_01", title: "ነገረ ማርያም ትምህርት 1" },
+    { id: "BQACAgQAAxkBAAMcapd9mbw5iHKJf-7Y1JPbLh2sGTMAAvEKAAIn8NhRpbFmUy6n4sw9BA", title: "ነገረ ማርያም በሐዲስ ኪዳን Dr ሮዳስ ታደሰ" },
     { id: "DUMMY_AMH_MRY_02", title: "ነገረ ማርያም ትምህርት 2" },
     { id: "DUMMY_AMH_MRY_03", title: "ነገረ ማርያም ትምህርት 3" },
     { id: "DUMMY_AMH_MRY_04", title: "ነገረ ማርያም ትምህርት 4" },
@@ -470,7 +473,9 @@ bot.action("back_to_lang", (ctx) => {
   );
 });
 
-// Dynamic Display of Category Books
+// ==========================================
+// DYNAMIC DISPLAY OF CATEGORY BOOKS WITH AUTOMATIC NUMBERING (1., 2., 3. ...)
+// ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
   const books = booksDatabase[catKey];
@@ -479,8 +484,9 @@ bot.action(/^cat_(.+)$/, (ctx) => {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
 
-  const buttons = books.map(book => [
-    Markup.button.callback(`📖 ${book.title}`, `getbook_${book.id}`)
+  // አውቶማቲክ ተከታታይ ቁጥር (1., 2., 3. ...) መስጫ ሎጂክ
+  const buttons = books.map((book, index) => [
+    Markup.button.callback(`${index + 1}. ${book.title}`, `getbook_${book.id}`)
   ]);
 
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
@@ -523,7 +529,7 @@ bot.action(/^preview_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
+// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING WITH AUTOMATIC ORDER NUMBER
 // ==========================================
 bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
@@ -539,7 +545,6 @@ bot.on(['photo', 'document'], async (ctx) => {
       fileId = ctx.message.document.file_id;
       fileName = ctx.message.document.file_name || "Document";
     } else if (ctx.message.photo) {
-      // ከፎቶዎች መካከል ትልቁን ጥራት ያለው መምረጥ
       fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
     }
 
@@ -553,13 +558,12 @@ bot.on(['photo', 'document'], async (ctx) => {
   }
 
   // ----------------------------------------------------
-  // B. ሌላ ማንኛውም ተጠቃሚ (የከፈለ ወይም ያልከፈለ)
+  // B. ሌላ ማንኛውም ተጠቃሚ
   // ----------------------------------------------------
   const caption = ctx.message.caption || "";
   const docName = ctx.message.document ? ctx.message.document.file_name : "";
   const fullText = (caption + " " + docName).toLowerCase();
 
-  // የባንክ ሪሲት መሆናቸውን የሚያረጋግጡ ቁልፍ ቃላት
   const validBankKeywords = [
     "cbe", "telebirr", "abyssinia", "ahadu", "bank", 
     "transaction", "ref", "receipt", "transfer", "etb", 
@@ -567,11 +571,10 @@ bot.on(['photo', 'document'], async (ctx) => {
   ];
 
   const hasKeyword = validBankKeywords.some(keyword => fullText.includes(keyword));
-  const isPhotoReceipt = !!ctx.message.photo; // ፎቶ ከሆነ ሪሲት የመሆን ዕድሉ ከፍተኛ ነው
-
+  const isPhotoReceipt = !!ctx.message.photo;
   const isValidReceipt = hasKeyword || isPhotoReceipt;
 
-  // 1. የባንክ ሪሲት ካልሆነ መልእክቱን ወዲያውኑ DELETE ማድረግ
+  // 1. የባንክ ሪሲት ካልሆነ መልእክቱን Delete ማድረግ
   if (!isValidReceipt) {
     ctx.deleteMessage().catch(() => {});
     return ctx.reply("⚠️ እባክዎን ትክክለኛ የከፈሉበትን የባንክ ሪሲት (Receipt Photo/Document) ብቻ ይላኩ! ሌሎች ፋይሎች አይፈቀዱም።");
@@ -582,32 +585,52 @@ bot.on(['photo', 'document'], async (ctx) => {
     return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
   }
 
-  // 3. የባንክ ሪሲት ከሆነ ቀጥታ ወደ አድሚን Forward ማድረግ
+  // 3. አውቶማቲክ Order Number ማመንጨት (ምሳሌ፦ ORD-84920)
+  const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  // 4. ሪሲቱን ወደ አድሚን Forward ማድረግ
   const forwardedMsg = await ctx.telegram.forwardMessage(
     ADMIN_ID,
     ctx.chat.id,
     ctx.message.message_id
   );
 
-  db.pendingReceipts[forwardedMsg.message_id] = userId;
+  db.pendingReceipts[forwardedMsg.message_id] = {
+    userId: userId,
+    orderNumber: orderNumber
+  };
 
+  // ለእርስዎ (Admin) የሚላክ ማስታወቂያ
   await ctx.telegram.sendMessage(
     ADMIN_ID,
-    `📥 አዲስ የክፍያ ሪሲት ደርሷል!\n\n👤 ተጠቃሚ ID: ${userId}\n👤 Username: @${ctx.from.username || 'የለውም'}`,
-    Markup.inlineKeyboard([
-      [
-        Markup.button.callback("✅ Approve", `approve_${userId}`),
-        Markup.button.callback("❌ Reject", `reject_${userId}`)
-      ]
-    ])
+    `📥 **አዲስ የክፍያ ሪሲት ደርሷል!**\n\n` +
+    `🧾 **Order No:** \`#${orderNumber}\`\n` +
+    `👤 **ተጠቃሚ ID:** \`${userId}\`\n` +
+    `👤 **Username:** @${ctx.from.username || 'የለውም'}`,
+    {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`),
+          Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)
+        ]
+      ])
+    }
   );
 
-  ctx.reply("የላኩት ሪሲት ደርሶናል፤ አድሚኑ መርምሮ በጥቂት ደቂቃዎች ውስጥ አገልግሎቱን ይከፍትልዎታል!");
+  // ለተጠቃሚው የሚላክ ማረጋገጫ
+  ctx.reply(
+    `✅ የላኩት ሪሲት ደርሶናል!\n\n` +
+    `🧾 **የትዕዛዝ ቁጥርዎ (Order No):** \`#${orderNumber}\`\n\n` +
+    `አድሚኑ መርምሮ በጥቂት ደቂቃዎች ውስጥ አገልግሎቱን ይከፍትልዎታል!`, 
+    { parse_mode: 'Markdown' }
+  );
 });
 
-// Admin Approval/Rejection Actions
-bot.action(/^approve_(\d+)$/, (ctx) => {
+// Admin Approval Actions
+bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   const targetUserId = parseInt(ctx.match[1]);
+  const orderNumber = ctx.match[2];
 
   if (!db.users[targetUserId]) {
     db.users[targetUserId] = { is_paid: true };
@@ -617,25 +640,26 @@ bot.action(/^approve_(\d+)$/, (ctx) => {
 
   ctx.telegram.sendMessage(
     targetUserId,
-    "ክፍያዎ በትክክል ተቀባይነት አግኝቷል፤ ከአሁን በኋላ ሁሉንም መጽሐፍት ማውረድና መጠቀም ይችላሉ።"
+    `✅ የትዕዛዝ ቁጥር #${orderNumber} ክፍያዎ በትክክል ተቀባይነት አግኝቷል! ከአሁን በኋላ ሁሉንም መጽሐፍት ማውረድና መጠቀም ይችላሉ።`
   );
 
-  ctx.editMessageText(`✅ የ ተጠቃሚ ${targetUserId} ክፍያ ጸድቋል።`);
+  ctx.editMessageText(`✅ የ ተጠቃሚ ${targetUserId} ክፍያ (Order #${orderNumber}) ጸድቋል።`);
 });
 
-bot.action(/^reject_(\d+)$/, (ctx) => {
+bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
   const targetUserId = parseInt(ctx.match[1]);
+  const orderNumber = ctx.match[2];
 
   ctx.telegram.sendMessage(
     targetUserId,
-    "የላኩት ሪሲት ውድቅ ተደርጓል። እባክዎን ትክክለኛ ያልተደገመ ሪሲት ይላኩ።"
+    `❌ የትዕዛዝ ቁጥር #${orderNumber} ሪሲትዎ ውድቅ ተደርጓል። እባክዎን ትክክለኛ ያልተደገመ ሪሲት ይላኩ።`
   );
 
-  ctx.editMessageText(`❌ የ ተጠቃሚ ${targetUserId} ሪሲት ውድቅ ተደርጓል።`);
+  ctx.editMessageText(`❌ የ ተጠቃሚ ${targetUserId} ሪሲት (Order #${orderNumber}) ውድቅ ተደርጓል።`);
 });
 
 // ==========================================
-// 9. SEARCH LOGIC ( Exact & Typo Match )
+// 9. SEARCH LOGIC
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("እባክዎን ማንበብ የሚፈልጉትን የመጽሐፍ ስም ወይም ቁልፍ ቃል ያስገቡ፦");
@@ -644,7 +668,6 @@ bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
 bot.on('text', (ctx) => {
   const text = ctx.message.text;
 
-  // Ignore main menu and admin commands in text search
   if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '🔄 Start'].includes(text) || text.startsWith('/')) {
     return;
   }
@@ -652,7 +675,6 @@ bot.on('text', (ctx) => {
   const query = text.trim().toLowerCase();
   let matches = [];
 
-  // Flatten database search
   Object.keys(booksDatabase).forEach(cat => {
     booksDatabase[cat].forEach(book => {
       if (book.title.toLowerCase().includes(query)) {
@@ -665,8 +687,8 @@ bot.on('text', (ctx) => {
     return ctx.reply("ምንም የተዛመደ መጽሐፍ አልተገኘም። እባክዎን የቃሉን አጻጻፍ አስተካክለው ድጋሚ ይሞክሩ።");
   }
 
-  const buttons = matches.map(book => [
-    Markup.button.callback(`📖 ${book.title}`, `getbook_${book.id}`)
+  const buttons = matches.map((book, index) => [
+    Markup.button.callback(`${index + 1}. ${book.title}`, `getbook_${book.id}`)
   ]);
 
   ctx.reply(`🔍 የፍለጋ ውጤቶች (${matches.length} ተገኝተዋል)፦`, Markup.inlineKeyboard(buttons));
