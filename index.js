@@ -280,7 +280,7 @@ bot.start((ctx) => {
 });
 
 bot.hears('🔄 Start', (ctx) => {
-  ctx.reply("እንኳን ወደ ታላቁ ዲጂታል መጽሃፍት ቦት በሰላም መጡ", mainKeyboard);
+  ctx.reply("እንኳን ወደ ታላቁ የዲጂታል መጽሐፍ ቦት በሰላም መጡ", mainKeyboard);
 });
 
 bot.hears('📞 Contact Me', (ctx) => {
@@ -304,7 +304,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
       ],
       [
         Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("በእንግሊዝ", "lang_eng")
+        Markup.button.callback("By English ", "lang_eng")
       ]
     ])
   );
@@ -317,9 +317,9 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 // --- በግዕዝ ---
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
-    "በግዕዝ ቋንቋ የትኛውን ካቴጎሪ ማየት ይፈልጋሉ?",
+    "በግዕዝ ቋንቋ የትኛውን የመጽሐፍ ምድብ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ህግና ስርአት", "cat_geez_law")],
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_geez_law")],
       [Markup.button.callback("ታሪክና ድርሳናት", "sub_geez_hist")],
       [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_geez_bible")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
@@ -340,10 +340,10 @@ bot.action("sub_geez_hist", (ctx) => {
 
 bot.action("sub_geez_bible", (ctx) => {
   ctx.editMessageText(
-    "በግዕዝ ቋንቋ ከታች ከተዘረዘሩት ይምረጡ፦",
+    "በግዕዝ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ፦",
     Markup.inlineKeyboard([
       [Markup.button.callback("የብሉይ ኪዳን መጻሕፍት", "cat_geez_ot")],
-      [Markup.button.callback("የአዲስ ኪዳን መጻሕፍት", "cat_geez_nt")],
+      [Markup.button.callback("የሐዲስ ኪዳን መጻሕፍት", "cat_geez_nt")],
       [Markup.button.callback("⬅️ ተመለስ", "lang_geez")]
     ])
   );
@@ -352,9 +352,9 @@ bot.action("sub_geez_bible", (ctx) => {
 // --- በግዕዝ አማርኛ ---
 bot.action("lang_ga", (ctx) => {
   ctx.editMessageText(
-    "በግዕዝ አማርኛ የትኛውን ካቴጎሪ ማየት ይፈልጋሉ?",
+    "በግዕዝ አማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ህግና ስርአት", "cat_ga_law")],
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_ga_law")],
       [Markup.button.callback("ታሪክና ድርሳናት", "sub_ga_hist")],
       [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_ga_bible")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
@@ -364,7 +364,7 @@ bot.action("lang_ga", (ctx) => {
 
 bot.action("sub_ga_hist", (ctx) => {
   ctx.editMessageText(
-    "በግዕዝ አማርኛ ከታሪክና ድርሳናት የሚፈልጉትን ይምረጡ፦",
+    "በግዕዝ አማርኛ ከታሪክና ድርሳናት ማንበብ የሚፈልጉትን ይምረጡ፦",
     Markup.inlineKeyboard([
       [Markup.button.callback("ታሪክ", "cat_ga_hist")],
       [Markup.button.callback("ገድል ተአምር እና ድርሳን", "cat_ga_gdsl")],
@@ -375,7 +375,7 @@ bot.action("sub_ga_hist", (ctx) => {
 
 bot.action("sub_ga_bible", (ctx) => {
   ctx.editMessageText(
-    "በግዕዝ አማርኛ ከታች ከተዘረዘሩት ይምረጡ፦",
+    "በግዕዝ አማርኛ ማንበብ የሚፈልጉትን ይምረጡ፦",
     Markup.inlineKeyboard([
       [Markup.button.callback("የብሉይ ኪዳን መጻሕፍት", "cat_ga_ot")],
       [Markup.button.callback("የአዲስ ኪዳን መጻሕፍት", "cat_ga_nt")],
@@ -387,11 +387,11 @@ bot.action("sub_ga_bible", (ctx) => {
 // --- በአማርኛ ---
 bot.action("lang_amh", (ctx) => {
   ctx.editMessageText(
-    "በአማርኛ የትኛውን ካቴጎሪ ማየት ይፈልጋሉ?",
+    "በአማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ህግና ስርአት", "cat_amh_law")],
+      [Markup.button.callback("ሕግና ሥርዓት ", "cat_amh_law")],
       [Markup.button.callback("ታሪክና ድርሳናት", "sub_amh_hist")],
-      [Markup.button.callback("ክርስቲያናዊ ስነምግባር", "cat_amh_eth")],
+      [Markup.button.callback("ክርስቲያናዊ ሥነምግባር ", "cat_amh_eth")],
       [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_amh_bible")],
       [Markup.button.callback("ነገረ ሃይማኖት", "sub_amh_theology")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
@@ -427,7 +427,7 @@ bot.action("sub_amh_theology", (ctx) => {
     "በአማርኛ ከነገረ ሃይማኖት ክፍል የሚፈልጉትን ይምረጡ፦",
     Markup.inlineKeyboard([
       [Markup.button.callback("ነገረ ክርስቶስ", "cat_amh_chr")],
-      [Markup.button.callback("ነገረ ማርያም ወድህነት", "cat_amh_mry")],
+      [Markup.button.callback("ነገረ ማርያም ወድኅነት", "cat_amh_mry")],
       [Markup.button.callback("ነገረ ቅዱሳን", "cat_amh_snt")],
       [Markup.button.callback("ነገረ ሃይማኖት", "cat_amh_thl")],
       [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
@@ -464,7 +464,7 @@ bot.action("back_to_lang", (ctx) => {
       ],
       [
         Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("በእንግሊዝ", "lang_eng")
+        Markup.button.callback("By English ", "lang_eng")
       ]
     ])
   );
@@ -476,7 +476,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
   const books = booksDatabase[catKey];
 
   if (!books || books.length === 0) {
-    return ctx.answerCbQuery("በዚህ ካቴጎሪ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
+    return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
 
   const buttons = books.map(book => [
