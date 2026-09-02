@@ -120,10 +120,10 @@ const booksDatabase = {
     { id: "5", file_id: "DUMMY_GA_OT_05", title: "መጽሐፈ ምሳሌ ትርጓሜ" }
   ],
   "ga_nt": [
-    { id: "1", file_id: "DUMMY_GA_NT_01", title: "ወንጌል ዘማቴዎስ ትርጓሜ" },
-    { id: "2", file_id: "DUMMY_GA_NT_02", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
-    { id: "3", file_id: "DUMMY_GA_NT_03", title: "ግብረ ሐዋርያት ትርጓሜ" },
-    { id: "4", file_id: "DUMMY_GA_NT_04", title: "መልእክተ ጳውሎስ ትርጓሜ" },
+    { id: "1", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማቴዎስ ትርጓሜ" },
+    { id: "2", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማርቆስ ትርጓሜ" },
+    { id: "3", file_id: "BQACAgQAAxkBAANyapersQ98wbYKC8-79MnvYLqhKTAAAmQeAAK225lQS9MwBsORgaI9BA", title: "ወንጌል ዘሉቃድ ትርጓሜ" },
+    { id: "4", file_id: "BQACAgQAAxkBAANzapersT-LRq5gCg7KU_3K9e6EKmoAAhkbAAJt8rhSH2tfVI7_W4M9BA", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
     { id: "5", file_id: "DUMMY_GA_NT_05", title: "ራእየ ዮሐንስ ትርጓሜ" }
   ],
 
@@ -192,7 +192,7 @@ const booksDatabase = {
   ],
   "amh_chr": [
     { id: "1", file_id: "BQACAgQAAxkBAAMuapeKeQL2zvehmKt3MO2gUxGVZvQAAmEZAAL-iRFSUPgwjQABaU7tPQQ", title: "ነገረ ክርስቶስ መ/ር በትረ ማርያም" },
-    { id: "2", file_id: "DUMMY_AMH_CHR_02", title: "ነገረ ክርስቶስ ትምህርት 2" },
+    { id: "2", file_id: "BQACAgIAAxkBAAMtapeKNEeBt2v9bN9-QVFpLZtnPbAAArJbAAJlqAFJmPw18dc07Rw9BA", title: "በነገረ ክርስቶስ ላይ የተነሱ ጥያቄዎች እና መልሶቻቸው Dr ሮዳስ ታደሰ" },
     { id: "3", file_id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3" },
     { id: "4", file_id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4" },
     { id: "5", file_id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5" }
