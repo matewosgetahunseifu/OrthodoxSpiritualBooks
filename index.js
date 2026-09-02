@@ -1,5 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
+const Tesseract = require('tesseract.js');
 
 // ==========================================
 // 1. CONFIGURATION & CONSTANTS
@@ -283,6 +284,150 @@ function findBook(catKey, bookId) {
   return booksDatabase[catKey].find(b => b.id === bookId);
 }
 
+// ==========================================
+// 5. RECEIPT VALIDATION SYSTEM
+// ==========================================
+// Bank account details for validation
+const BANK_ACCOUNTS = [
+  { bank: "አሐዱ ባንክ", account: "0100775011101", name: "Matewos Getahun Seifu" },
+  { bank: "የኢትዮጵያ ንግድ ባንክ (CBE)", account: "1000661046841", name: "Matewos Getahun Seifu" },
+  { bank: "አቢሲንያ ባንክ", account: "57080698", name: "Matewos Getahun Seifu" },
+  { bank: "ቴሌብር (Telebirr)", account: "0943910036", name: "Matewos Getahun Seifu" }
+];
+
+// Keywords that indicate a bank receipt
+const RECEIPT_KEYWORDS = [
+  // English keywords
+  "receipt", "payment", "deposit", "transfer", "transaction", 
+  "bank", "cbe", "telebirr", "abyssinia", "ahadu", "etb",
+  "ref", "reference", "amount", "date", "time",
+  // Amharic keywords
+  "ሪሲት", "ክፍያ", "ተቀባይ", "ላኪ", "ገንዘብ", "ባንክ", 
+  "ሂሳብ", "ቁጥር", "ማረጋገጫ", "ደረሰ", "ተላልፏል",
+  "ብር", "ብር", "ሺ", "ሺህ", "መቶ",
+  // Account numbers (partial)
+  "0100775011101", "1000661046841", "57080698", "0943910036",
+  // Names
+  "matewos", "getahun", "seifu", "ማቴዎስ", "ጌታሁን", "ሰይፉ"
+];
+
+// Function to validate if a file is a bank receipt using multiple methods
+async function validateBankReceipt(fileId, caption, fileName, fileType) {
+  let confidence = 0;
+  let reasons = [];
+  
+  // Method 1: Check caption and filename for keywords
+  const textToCheck = (caption + " " + fileName).toLowerCase();
+  let keywordMatches = 0;
+  
+  for (const keyword of RECEIPT_KEYWORDS) {
+    if (textToCheck.includes(keyword.toLowerCase())) {
+      keywordMatches++;
+    }
+  }
+  
+  // If we have at least 2 keyword matches, it's likely a receipt
+  if (keywordMatches >= 2) {
+    confidence += 40;
+    reasons.push(`Found ${keywordMatches} receipt keywords`);
+  } else if (keywordMatches === 1) {
+    confidence += 20;
+    reasons.push(`Found 1 receipt keyword`);
+  }
+  
+  // Method 2: Check file type - receipts are usually photos or PDFs
+  if (fileType === 'photo' || fileType === 'document') {
+    confidence += 15;
+    reasons.push(`File type is ${fileType}`);
+  }
+  
+  // Method 3: Check if it contains bank account numbers
+  const accountMatches = BANK_ACCOUNTS.filter(acc => 
+    textToCheck.includes(acc.account) || textToCheck.includes(acc.account.substring(0, 8))
+  );
+  
+  if (accountMatches.length > 0) {
+    confidence += 30;
+    reasons.push(`Contains bank account number: ${accountMatches.map(a => a.bank).join(', ')}`);
+  }
+  
+  // Method 4: Check if it contains the name "Matewos" or "ማቴዎስ"
+  if (textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ')) {
+    confidence += 15;
+    reasons.push(`Contains recipient name`);
+  }
+  
+  // Method 5: Check for common receipt patterns (dates, amounts)
+  const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
+  const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
+  
+  if (hasDatePattern) {
+    confidence += 5;
+    reasons.push(`Contains date pattern`);
+  }
+  if (hasAmountPattern) {
+    confidence += 5;
+    reasons.push(`Contains amount pattern`);
+  }
+  
+  // Method 6: For photos, try OCR to extract text
+  if (fileType === 'photo') {
+    try {
+      // Get the file from Telegram
+      const fileLink = await bot.telegram.getFileLink(fileId);
+      const response = await fetch(fileLink);
+      const buffer = await response.arrayBuffer();
+      
+      // Use Tesseract.js for OCR
+      const result = await Tesseract.recognize(
+        Buffer.from(buffer),
+        'amh+eng',
+        { logger: m => console.log(m) }
+      );
+      
+      const ocrText = result.data.text.toLowerCase();
+      console.log('OCR Text:', ocrText);
+      
+      // Check OCR text for receipt keywords
+      let ocrMatches = 0;
+      for (const keyword of RECEIPT_KEYWORDS) {
+        if (ocrText.includes(keyword.toLowerCase())) {
+          ocrMatches++;
+        }
+      }
+      
+      if (ocrMatches >= 3) {
+        confidence += 30;
+        reasons.push(`OCR detected ${ocrMatches} receipt keywords`);
+      } else if (ocrMatches >= 1) {
+        confidence += 15;
+        reasons.push(`OCR detected ${ocrMatches} receipt keywords`);
+      }
+      
+      // Check OCR for account numbers
+      for (const acc of BANK_ACCOUNTS) {
+        if (ocrText.includes(acc.account) || ocrText.includes(acc.account.substring(0, 8))) {
+          confidence += 20;
+          reasons.push(`OCR detected account number: ${acc.bank}`);
+          break;
+        }
+      }
+      
+    } catch (error) {
+      console.log('OCR processing error:', error);
+    }
+  }
+  
+  // Final decision: If confidence >= 50, consider it a valid receipt
+  const isValid = confidence >= 50;
+  
+  return {
+    isValid,
+    confidence,
+    reasons: reasons.join(', ')
+  };
+}
+
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
   ['📞 Contact Me', '💬 Feedback'],
@@ -290,7 +435,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 5. COMMANDS & MAIN MENU LOGIC
+// 6. COMMANDS & MAIN MENU LOGIC
 // ==========================================
 bot.start((ctx) => {
   registerUser(ctx.from);
@@ -329,7 +474,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 });
 
 // ==========================================
-// 6. CATEGORY ROUTING & CALLBACK HANDLERS
+// 7. CATEGORY ROUTING & CALLBACK HANDLERS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -503,7 +648,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 7. BOOK DELIVERY & MONETIZATION LOGIC
+// 8. BOOK DELIVERY & MONETIZATION LOGIC
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -546,11 +691,9 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
+// 9. AUTOMATED RECEIPT PROCESSING WITH VALIDATION
 // ==========================================
 function extractFileInfo(msg) {
-  console.log('Analyzing message:', JSON.stringify(msg, null, 2));
-  
   if (msg.document) {
     return {
       type: 'document',
@@ -622,12 +765,6 @@ function extractFileInfo(msg) {
     };
   }
   
-  if (msg.forward_from_chat || msg.forward_from) {
-    console.log('Forwarded message with no direct file detected');
-    return null;
-  }
-  
-  console.log('No file found in message');
   return null;
 }
 
@@ -637,13 +774,13 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
   
   console.log(`Received file from user ${userId}`);
 
-  const fileInfo = extractFileInfo(message);
-
-  if (!fileInfo) {
-    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)።");
-  }
-
+  // ADMIN: Extract and display file ID for any file
   if (userId === ADMIN_ID) {
+    const fileInfo = extractFileInfo(message);
+    if (!fileInfo) {
+      return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።");
+    }
+    
     return ctx.reply(
       `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
       `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
@@ -656,58 +793,88 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
     );
   }
 
-  const caption = message.caption || "";
-  const docName = fileInfo.fileName || "";
-  const fullText = (caption + " " + docName).toLowerCase();
-
-  const validBankKeywords = [
-    "cbe", "telebirr", "abyssinia", "ahadu", "bank", 
-    "transaction", "ref", "receipt", "transfer", "etb", 
-    "ብር", "ሒሳብ", "ማረጋገጫ", "matewos", "ማቴዎስ", "pdf",
-    "payment", "deposit", "ሪሲት", "receipt"
-  ];
-
-  const hasKeyword = validBankKeywords.some(keyword => fullText.includes(keyword));
-  const isPhotoReceipt = fileInfo.type === 'photo';
-  const isValidReceipt = hasKeyword || isPhotoReceipt;
-
-  if (!isValidReceipt) {
+  // For non-admin users: validate if it's a receipt
+  const fileInfo = extractFileInfo(message);
+  
+  if (!fileInfo) {
     try {
       await ctx.deleteMessage();
     } catch (err) {
       console.log('Could not delete message:', err.message);
     }
-    return ctx.reply("⚠️ እባክዎን ትክክለኛ የከፈሉበትን የባንክ ሪሲት (Receipt Photo/Document) ብቻ ይላኩ! ሌሎች ፋይሎች አይፈቀዱም።");
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
   }
 
+  // Check if user is already paid
   if (isPaidUser(userId)) {
-    return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
+    try {
+      await ctx.deleteMessage();
+    } catch (err) {
+      console.log('Could not delete message:', err.message);
+    }
+    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
   }
 
+  // VALIDATE THE RECEIPT
+  const caption = message.caption || "";
+  const validationResult = await validateBankReceipt(
+    fileInfo.fileId,
+    caption,
+    fileInfo.fileName,
+    fileInfo.type
+  );
+
+  console.log(`Receipt validation for user ${userId}:`, validationResult);
+
+  // If NOT a valid receipt, delete and warn the user
+  if (!validationResult.isValid) {
+    try {
+      await ctx.deleteMessage();
+    } catch (err) {
+      console.log('Could not delete message:', err.message);
+    }
+    
+    return ctx.reply(
+      `❌ ይህ የባንክ ሪሲት አይደለም!\n\n` +
+      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት ይላኩ።\n\n` +
+      `📋 ትክክለኛ ሪሲት የሚከተሉትን መያዝ አለበት፦\n` +
+      `• የባንክ ስም\n` +
+      `• የሂሳብ ቁጥር\n` +
+      `• የተከፈለ ገንዘብ መጠን\n` +
+      `• የክፍያ ቀን እና ሰዓት\n` +
+      `• የተቀባይ ስም (Matewos Getahun Seifu)`
+    );
+  }
+
+  // If it IS a valid receipt, process it
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
+    // Send the receipt to your PRIVATE Telegram account (@Sealilenemariyammsle12we19)
     const forwardedMsg = await ctx.telegram.forwardMessage(
-      ADMIN_ID,
+      ADMIN_ID,  // Your private account ID
       ctx.chat.id,
       message.message_id
     );
 
     db.pendingReceipts[forwardedMsg.message_id] = {
       userId: userId,
-      orderNumber: orderNumber
+      orderNumber: orderNumber,
+      validationConfidence: validationResult.confidence,
+      validationReasons: validationResult.reasons
     };
 
     await ctx.telegram.sendMessage(
       ADMIN_ID,
-      `📥 **አዲስ የክፍያ ሪሲት ደርሷል!**\n\n` +
+      `📥 **አዲስ የተረጋገጠ የክፍያ ሪሲት ደርሷል!**\n\n` +
       `🧾 **Order No:** \`#${orderNumber}\`\n` +
       `👤 **ተጠቃሚ ID:** \`${userId}\`\n` +
       `👤 **Username:** @${ctx.from.username || 'የለውም'}\n` +
       `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
       `📁 **File Type:** \`${fileInfo.type}\`\n` +
-      `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
-      `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\``,
+      `✅ **Validation Confidence:** \`${validationResult.confidence}%\`\n` +
+      `📋 **Validation Reasons:** ${validationResult.reasons}\n\n` +
+      `⚠️ **Please verify the receipt manually before approving!**`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -719,12 +886,15 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
       }
     );
 
+    // Send confirmation to user
     ctx.reply(
-      `✅ የላኩት ሪሲት ደርሶናል!\n\n` +
-      `🧾 **የትዕዛዝ ቁጥርዎ (Order No):** \`#${orderNumber}\`\n\n` +
+      `✅ የሪሲትዎ መረጋገጫ ተሳክቷል!\n\n` +
+      `🧾 **የትዕዛዝ ቁጥርዎ (Order No):** \`#${orderNumber}\`\n` +
+      `📊 **የማረጋገጫ ደረጃ:** \`${validationResult.confidence}%\`\n\n` +
       `አድሚኑ መርምሮ በጥቂት ደቂቃዎች ውስጥ አገልግሎቱን ይከፍትልዎታል!`, 
       { parse_mode: 'Markdown' }
     );
+    
   } catch (error) {
     console.error('Error processing receipt:', error);
     ctx.reply("⚠️ ሪሲትዎን ማስኬድ አልቻልኩም። እባክዎን በቀጥታ ወደ አድሚን ይላኩ።");
@@ -762,7 +932,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. SEARCH LOGIC
+// 10. SEARCH LOGIC
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("እባክዎን ማንበብ የሚፈልጉትን የመጽሐፍ ስም ወይም ቁልፍ ቃል ያስገቡ፦");
@@ -798,7 +968,7 @@ bot.on('text', (ctx) => {
 });
 
 // ==========================================
-// 10. ADMIN DASHBOARD & COMMANDS
+// 11. ADMIN DASHBOARD & COMMANDS
 // ==========================================
 bot.command('admin', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
@@ -862,7 +1032,7 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 11. BOT LAUNCH & ERROR HANDLING
+// 12. BOT LAUNCH & ERROR HANDLING
 // ==========================================
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
