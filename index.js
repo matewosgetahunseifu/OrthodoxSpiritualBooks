@@ -1,6 +1,5 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
-const http = require('http');
 
 // ==========================================
 // 1. CONFIGURATION & CONSTANTS
@@ -11,6 +10,15 @@ const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
 const PORT = process.env.PORT || 3000;
 
 const bot = new Telegraf(BOT_TOKEN);
+
+// Uncaught Errors አፕሊኬሽኑን እንዳይዘጉ የሚከላከል
+process.on('uncaughtException', (err) => {
+  console.error('There was an uncaught error:', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
 
 // In-Memory Database
 const db = {
@@ -31,11 +39,16 @@ app.listen(PORT, () => {
 });
 
 // የ3 ደቂቃ Ping ሎጂክ (Render እንዳይተኛ)
-setInterval(() => {
+setInterval(async () => {
   const serverUrl = process.env.RENDER_EXTERNAL_URL;
   if (serverUrl) {
-    const fetch = require('node-fetch');
-    fetch(`${serverUrl}/ping`).catch(err => console.log('Ping failed:', err.message));
+    try {
+      if (globalThis.fetch) {
+        await globalThis.fetch(`${serverUrl}/ping`);
+      }
+    } catch (err) {
+      console.log('Ping failed:', err.message);
+    }
   }
 }, 3 * 60 * 1000);
 
@@ -250,7 +263,7 @@ const booksDatabase = {
 // 4. HELPER FUNCTIONS
 // ==========================================
 function isPaidUser(userId) {
-  if (userId === ADMIN_ID) return true; // Admin Bypass Logic
+  if (userId === ADMIN_ID) return true;
   return db.users[userId] && db.users[userId].is_paid === true;
 }
 
@@ -276,10 +289,7 @@ const mainKeyboard = Markup.keyboard([
 // ==========================================
 bot.start((ctx) => {
   registerUser(ctx.from);
-  ctx.reply(
-    "እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ",
-    mainKeyboard
-  );
+  ctx.reply("እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ", mainKeyboard);
 });
 
 bot.hears('🔄 Start', (ctx) => {
@@ -316,8 +326,6 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 // ==========================================
 // 6. CATEGORY ROUTING & CALLBACK HANDLERS
 // ==========================================
-
-// --- በግዕዝ ---
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
     "በግዕዝ ቋንቋ የትኛውን የመጽሐፍ ምድብ ማንበብ ይፈልጋሉ?",
@@ -352,7 +360,6 @@ bot.action("sub_geez_bible", (ctx) => {
   );
 });
 
-// --- በግዕዝ አማርኛ ---
 bot.action("lang_ga", (ctx) => {
   ctx.editMessageText(
     "በግዕዝ አማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
@@ -387,7 +394,6 @@ bot.action("sub_ga_bible", (ctx) => {
   );
 });
 
-// --- በአማርኛ ---
 bot.action("lang_amh", (ctx) => {
   ctx.editMessageText(
     "በአማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
@@ -438,7 +444,6 @@ bot.action("sub_amh_theology", (ctx) => {
   );
 });
 
-// --- In English ---
 bot.action("lang_eng", (ctx) => {
   ctx.editMessageText(
     "Please select a category in English:",
@@ -453,7 +458,6 @@ bot.action("lang_eng", (ctx) => {
   );
 });
 
-// Back to Language Selection
 bot.action("back_to_lang", (ctx) => {
   ctx.editMessageText(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
@@ -474,7 +478,7 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// DYNAMIC DISPLAY OF CATEGORY BOOKS WITH AUTOMATIC NUMBERING (1., 2., 3. ...)
+// DYNAMIC DISPLAY OF CATEGORY BOOKS
 // ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -484,7 +488,6 @@ bot.action(/^cat_(.+)$/, (ctx) => {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
 
-  // አውቶማቲክ ተከታታይ ቁጥር (1., 2., 3. ...) መስጫ ሎጂክ
   const buttons = books.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `getbook_${book.id}`)
   ]);
@@ -501,7 +504,6 @@ bot.action(/^getbook_(.+)$/, (ctx) => {
   const fileId = ctx.match[1];
   const userId = ctx.from.id;
 
-  // Unpaid User Check
   if (!isPaidUser(userId)) {
     return ctx.reply(
       `የኦርቶዶክስ መንፈሳዊ መጽሐፍት\n\nሁሉንም የመጽሐፍ ዓይነቶች (በግዕዝ፣ በአማርኛ፣ በግዕዝ አማርኛ፣ የግዕዝ ቋንቋ) ሙሉ በሙሉ ለመጠቀም 200 (ሁለት መቶ) ብር አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\nክፍያ እንደፈጸሙ የባንክ ሪሲት (Receipt Photo/Document) ወደዚህ ቦት ይላኩ።`,
@@ -511,7 +513,6 @@ bot.action(/^getbook_(.+)$/, (ctx) => {
     );
   }
 
-  // Content Protection (protect_content = True)
   ctx.replyWithDocument(fileId, {
     caption: "መልካም ንባብ! (ይህ መጽሐፍ የመጠበቅ መብቱ የተጠበቀ ስለሆነ ማስተላለፍ (Forward) አይቻልም)",
     protect_content: true
@@ -520,7 +521,6 @@ bot.action(/^getbook_(.+)$/, (ctx) => {
   });
 });
 
-// Preview / Sample Logic (Unpaid Users)
 bot.action(/^preview_(.+)$/, (ctx) => {
   const fileId = ctx.match[1];
   ctx.reply(`📄 የመጽሐፉ ቅምሻ (Preview - የመጀመሪያዎቹ 2-3 ገጾች)፦\n\nይህ የናሙና ገጽ ነው [File ID: ${fileId}]። ሙሉውን መጽሐፍ ለማንበብ እባክዎን ክፍያውን ይፈጽሙ።`, {
@@ -529,14 +529,11 @@ bot.action(/^preview_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING WITH AUTOMATIC ORDER NUMBER
+// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
 // ==========================================
 bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
 
-  // ----------------------------------------------------
-  // A. እርስዎ (ADMIN) ብቻ ፋይል ሲልኩ ወይም FORWARD ሲያደርጉ
-  // ----------------------------------------------------
   if (userId === ADMIN_ID) {
     let fileId = "";
     let fileName = "ፋይል (Photo)";
@@ -557,9 +554,6 @@ bot.on(['photo', 'document'], async (ctx) => {
     );
   }
 
-  // ----------------------------------------------------
-  // B. ሌላ ማንኛውም ተጠቃሚ
-  // ----------------------------------------------------
   const caption = ctx.message.caption || "";
   const docName = ctx.message.document ? ctx.message.document.file_name : "";
   const fullText = (caption + " " + docName).toLowerCase();
@@ -574,21 +568,17 @@ bot.on(['photo', 'document'], async (ctx) => {
   const isPhotoReceipt = !!ctx.message.photo;
   const isValidReceipt = hasKeyword || isPhotoReceipt;
 
-  // 1. የባንክ ሪሲት ካልሆነ መልእክቱን Delete ማድረግ
   if (!isValidReceipt) {
     ctx.deleteMessage().catch(() => {});
     return ctx.reply("⚠️ እባክዎን ትክክለኛ የከፈሉበትን የባንክ ሪሲት (Receipt Photo/Document) ብቻ ይላኩ! ሌሎች ፋይሎች አይፈቀዱም።");
   }
 
-  // 2. ቀደም ሲል የከፈለ ተጠቃሚ ከሆነ
   if (isPaidUser(userId)) {
     return ctx.reply("እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
   }
 
-  // 3. አውቶማቲክ Order Number ማመንጨት (ምሳሌ፦ ORD-84920)
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
-  // 4. ሪሲቱን ወደ አድሚን Forward ማድረግ
   const forwardedMsg = await ctx.telegram.forwardMessage(
     ADMIN_ID,
     ctx.chat.id,
@@ -600,7 +590,6 @@ bot.on(['photo', 'document'], async (ctx) => {
     orderNumber: orderNumber
   };
 
-  // ለእርስዎ (Admin) የሚላክ ማስታወቂያ
   await ctx.telegram.sendMessage(
     ADMIN_ID,
     `📥 **አዲስ የክፍያ ሪሲት ደርሷል!**\n\n` +
@@ -618,7 +607,6 @@ bot.on(['photo', 'document'], async (ctx) => {
     }
   );
 
-  // ለተጠቃሚው የሚላክ ማረጋገጫ
   ctx.reply(
     `✅ የላኩት ሪሲት ደርሶናል!\n\n` +
     `🧾 **የትዕዛዝ ቁጥርዎ (Order No):** \`#${orderNumber}\`\n\n` +
@@ -627,7 +615,6 @@ bot.on(['photo', 'document'], async (ctx) => {
   );
 });
 
-// Admin Approval Actions
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   const targetUserId = parseInt(ctx.match[1]);
   const orderNumber = ctx.match[2];
@@ -727,7 +714,6 @@ bot.action('admin_stats', (ctx) => {
   ctx.editMessageText(`📊 የአጠቃቀም ስታቲስቲክስ፦\n\n• ጠቅላላ ተጠቃሚዎች፦ ${totalUsers}\n• ክፍያ የፈጸሙ፦ ${paidUsers}\n• ነፃ ተጠቃሚዎች፦ ${freeUsers}`);
 });
 
-// Broadcast Command
 bot.command('broadcast', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
 
@@ -766,8 +752,13 @@ bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
 });
 
-bot.launch().then(() => {
+// Bot Launch
+bot.launch({
+  dropPendingUpdates: true // የቆዩ ጥያቄዎች እንዳያጣብቁት
+}).then(() => {
   console.log("Bot is running successfully...");
+}).catch((err) => {
+  console.error("Failed to launch bot:", err);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
