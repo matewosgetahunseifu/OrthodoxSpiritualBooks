@@ -1,6 +1,5 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
-const Tesseract = require('tesseract.js');
 
 // ==========================================
 // 1. CONFIGURATION & CONSTANTS
@@ -54,7 +53,6 @@ setInterval(async () => {
 // 3. BOOKS DATABASE
 // ==========================================
 const booksDatabase = {
-  // --- 3.1. በግዕዝ ---
   "geez_law": [
     { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
@@ -90,8 +88,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
   ],
-
-  // --- 3.2. በግዕዝ አማርኛ ---
   "ga_law": [
     { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
     { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
@@ -129,8 +125,6 @@ const booksDatabase = {
     { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ" },
     { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ" }
   ],
-
-  // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
   "geez_edu": [
     { 
       id: "1", 
@@ -142,8 +136,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
     { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
   ],
-
-  // --- 3.4. በአማርኛ ---
   "amh_law": [
     { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
     { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
@@ -221,8 +213,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4" },
     { id: "5", file_id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
   ],
-
-  // --- 3.5. In English ---
   "eng_law": [
     { id: "1", file_id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
     { id: "2", file_id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
@@ -285,38 +275,23 @@ function findBook(catKey, bookId) {
 }
 
 // ==========================================
-// 5. RECEIPT VALIDATION SYSTEM
+// 5. RECEIPT VALIDATION (No OCR needed)
 // ==========================================
-// Bank account details for validation
-const BANK_ACCOUNTS = [
-  { bank: "አሐዱ ባንክ", account: "0100775011101", name: "Matewos Getahun Seifu" },
-  { bank: "የኢትዮጵያ ንግድ ባንክ (CBE)", account: "1000661046841", name: "Matewos Getahun Seifu" },
-  { bank: "አቢሲንያ ባንክ", account: "57080698", name: "Matewos Getahun Seifu" },
-  { bank: "ቴሌብር (Telebirr)", account: "0943910036", name: "Matewos Getahun Seifu" }
-];
-
-// Keywords that indicate a bank receipt
 const RECEIPT_KEYWORDS = [
-  // English keywords
   "receipt", "payment", "deposit", "transfer", "transaction", 
   "bank", "cbe", "telebirr", "abyssinia", "ahadu", "etb",
   "ref", "reference", "amount", "date", "time",
-  // Amharic keywords
   "ሪሲት", "ክፍያ", "ተቀባይ", "ላኪ", "ገንዘብ", "ባንክ", 
   "ሂሳብ", "ቁጥር", "ማረጋገጫ", "ደረሰ", "ተላልፏል",
-  "ብር", "ብር", "ሺ", "ሺህ", "መቶ",
-  // Account numbers (partial)
+  "ብር", "ሺ", "ሺህ", "መቶ",
   "0100775011101", "1000661046841", "57080698", "0943910036",
-  // Names
   "matewos", "getahun", "seifu", "ማቴዎስ", "ጌታሁን", "ሰይፉ"
 ];
 
-// Function to validate if a file is a bank receipt using multiple methods
-async function validateBankReceipt(fileId, caption, fileName, fileType) {
+function validateBankReceipt(caption, fileName, fileType) {
   let confidence = 0;
   let reasons = [];
   
-  // Method 1: Check caption and filename for keywords
   const textToCheck = (caption + " " + fileName).toLowerCase();
   let keywordMatches = 0;
   
@@ -326,38 +301,33 @@ async function validateBankReceipt(fileId, caption, fileName, fileType) {
     }
   }
   
-  // If we have at least 2 keyword matches, it's likely a receipt
-  if (keywordMatches >= 2) {
-    confidence += 40;
+  if (keywordMatches >= 3) {
+    confidence += 50;
     reasons.push(`Found ${keywordMatches} receipt keywords`);
-  } else if (keywordMatches === 1) {
-    confidence += 20;
-    reasons.push(`Found 1 receipt keyword`);
+  } else if (keywordMatches >= 2) {
+    confidence += 30;
+    reasons.push(`Found ${keywordMatches} receipt keywords`);
+  } else if (keywordMatches >= 1) {
+    confidence += 15;
+    reasons.push(`Found ${keywordMatches} receipt keyword`);
   }
   
-  // Method 2: Check file type - receipts are usually photos or PDFs
   if (fileType === 'photo' || fileType === 'document') {
     confidence += 15;
     reasons.push(`File type is ${fileType}`);
   }
   
-  // Method 3: Check if it contains bank account numbers
-  const accountMatches = BANK_ACCOUNTS.filter(acc => 
-    textToCheck.includes(acc.account) || textToCheck.includes(acc.account.substring(0, 8))
-  );
-  
-  if (accountMatches.length > 0) {
+  if (textToCheck.includes('0100775011101') || textToCheck.includes('1000661046841') || 
+      textToCheck.includes('57080698') || textToCheck.includes('0943910036')) {
     confidence += 30;
-    reasons.push(`Contains bank account number: ${accountMatches.map(a => a.bank).join(', ')}`);
+    reasons.push(`Contains bank account number`);
   }
   
-  // Method 4: Check if it contains the name "Matewos" or "ማቴዎስ"
   if (textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ')) {
     confidence += 15;
     reasons.push(`Contains recipient name`);
   }
   
-  // Method 5: Check for common receipt patterns (dates, amounts)
   const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
   const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
   
@@ -370,56 +340,7 @@ async function validateBankReceipt(fileId, caption, fileName, fileType) {
     reasons.push(`Contains amount pattern`);
   }
   
-  // Method 6: For photos, try OCR to extract text
-  if (fileType === 'photo') {
-    try {
-      // Get the file from Telegram
-      const fileLink = await bot.telegram.getFileLink(fileId);
-      const response = await fetch(fileLink);
-      const buffer = await response.arrayBuffer();
-      
-      // Use Tesseract.js for OCR
-      const result = await Tesseract.recognize(
-        Buffer.from(buffer),
-        'amh+eng',
-        { logger: m => console.log(m) }
-      );
-      
-      const ocrText = result.data.text.toLowerCase();
-      console.log('OCR Text:', ocrText);
-      
-      // Check OCR text for receipt keywords
-      let ocrMatches = 0;
-      for (const keyword of RECEIPT_KEYWORDS) {
-        if (ocrText.includes(keyword.toLowerCase())) {
-          ocrMatches++;
-        }
-      }
-      
-      if (ocrMatches >= 3) {
-        confidence += 30;
-        reasons.push(`OCR detected ${ocrMatches} receipt keywords`);
-      } else if (ocrMatches >= 1) {
-        confidence += 15;
-        reasons.push(`OCR detected ${ocrMatches} receipt keywords`);
-      }
-      
-      // Check OCR for account numbers
-      for (const acc of BANK_ACCOUNTS) {
-        if (ocrText.includes(acc.account) || ocrText.includes(acc.account.substring(0, 8))) {
-          confidence += 20;
-          reasons.push(`OCR detected account number: ${acc.bank}`);
-          break;
-        }
-      }
-      
-    } catch (error) {
-      console.log('OCR processing error:', error);
-    }
-  }
-  
-  // Final decision: If confidence >= 50, consider it a valid receipt
-  const isValid = confidence >= 50;
+  const isValid = confidence >= 40;
   
   return {
     isValid,
@@ -435,7 +356,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 6. COMMANDS & MAIN MENU LOGIC
+// 6. COMMANDS & MAIN MENU
 // ==========================================
 bot.start((ctx) => {
   registerUser(ctx.from);
@@ -458,23 +379,15 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
   ctx.reply(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [
-        Markup.button.callback("በግዕዝ", "lang_geez"),
-        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
-      ],
-      [
-        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
-      ],
-      [
-        Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("In English", "lang_eng")
-      ]
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
     ])
   );
 });
 
 // ==========================================
-// 7. CATEGORY ROUTING & CALLBACK HANDLERS
+// 7. CATEGORY ROUTING
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -612,23 +525,15 @@ bot.action("back_to_lang", (ctx) => {
   ctx.editMessageText(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [
-        Markup.button.callback("በግዕዝ", "lang_geez"),
-        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
-      ],
-      [
-        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
-      ],
-      [
-        Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("In English", "lang_eng")
-      ]
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
     ])
   );
 });
 
 // ==========================================
-// DYNAMIC DISPLAY OF CATEGORY BOOKS
+// 8. BOOK DISPLAY & DELIVERY
 // ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -647,9 +552,6 @@ bot.action(/^cat_(.+)$/, (ctx) => {
   ctx.editMessageText("ማንበብ የሚፈልጉትን መጽሐፍ ይምረጡ፦", Markup.inlineKeyboard(buttons));
 });
 
-// ==========================================
-// 8. BOOK DELIVERY & MONETIZATION LOGIC
-// ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
   const bookId = ctx.match[2];
@@ -663,7 +565,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
 
   if (!isPaidUser(userId)) {
     return ctx.reply(
-      `የኦርቶዶክስ መንፈሳዊ መጽሐፍት\n\nሁሉንም የመጽሐፍ ዓይነቶች (በግዕዝ፣ በአማርኛ፣ በግዕዝ አማርኛ፣ የግዕዝ ቋንቋ) ሙሉ በሙሉ ለመጠቀም 200 (ሁለት መቶ) ብር አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\nክፍያ እንደፈጸሙ የባንክ ሪሲት (Receipt Photo/Document) ወደዚህ ቦት ይላኩ።`,
+      `የኦርቶዶክስ መንፈሳዊ መጽሐፍት\n\nሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም 200 ብር አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\nክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።`,
       Markup.inlineKeyboard([
         [Markup.button.callback("👁 ቅምሻ / Preview", `prev_${catKey}_${bookId}`)]
       ])
@@ -671,10 +573,10 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   }
 
   ctx.replyWithDocument(book.file_id, {
-    caption: `📖 ${book.title}\n\nመልካም ንባብ! (ይህ መጽሐፍ የመጠበቅ መብቱ የተጠበቀ ስለሆነ ማስተላለፍ (Forward) አይቻልም)`,
+    caption: `📖 ${book.title}\n\nመልካም ንባብ!`,
     protect_content: true
   }).catch(() => {
-    ctx.reply(`📖 የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ በቴሌግራም ላይ አልተገኘም ወይም File ID ስህተት ነው)`);
+    ctx.reply(`📖 የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ አልተገኘም)`);
   });
 });
 
@@ -691,7 +593,7 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. AUTOMATED RECEIPT PROCESSING WITH VALIDATION
+// 9. RECEIPT PROCESSING
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -715,66 +617,14 @@ function extractFileInfo(msg) {
     };
   }
   
-  if (msg.video) {
-    return {
-      type: 'video',
-      fileId: msg.video.file_id,
-      fileName: 'Video.mp4',
-      mimeType: 'video/mp4',
-      fileSize: msg.video.file_size || 0
-    };
-  }
-  
-  if (msg.audio) {
-    return {
-      type: 'audio',
-      fileId: msg.audio.file_id,
-      fileName: msg.audio.file_name || 'Audio.mp3',
-      mimeType: 'audio/mpeg',
-      fileSize: msg.audio.file_size || 0
-    };
-  }
-  
-  if (msg.voice) {
-    return {
-      type: 'voice',
-      fileId: msg.voice.file_id,
-      fileName: 'Voice.ogg',
-      mimeType: 'audio/ogg',
-      fileSize: msg.voice.file_size || 0
-    };
-  }
-  
-  if (msg.animation) {
-    return {
-      type: 'animation',
-      fileId: msg.animation.file_id,
-      fileName: 'Animation.gif',
-      mimeType: 'image/gif',
-      fileSize: msg.animation.file_size || 0
-    };
-  }
-  
-  if (msg.sticker) {
-    return {
-      type: 'sticker',
-      fileId: msg.sticker.file_id,
-      fileName: 'Sticker.webp',
-      mimeType: 'image/webp',
-      fileSize: msg.sticker.file_size || 0
-    };
-  }
-  
   return null;
 }
 
-bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
+bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
   const message = ctx.message;
-  
-  console.log(`Received file from user ${userId}`);
 
-  // ADMIN: Extract and display file ID for any file
+  // ADMIN: Get file ID
   if (userId === ADMIN_ID) {
     const fileInfo = extractFileInfo(message);
     if (!fileInfo) {
@@ -782,77 +632,45 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
     }
     
     return ctx.reply(
-      `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
-      `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
-      `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
-      `📁 **File Type:** \`${fileInfo.type}\`\n` +
-      `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
-      `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n\n` +
-      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
+      `🔑 **የፋይሉ ID**\n\n` +
+      `📄 File: ${fileInfo.fileName}\n` +
+      `🆔 ID: ${fileInfo.fileId}\n` +
+      `📁 Type: ${fileInfo.type}`,
       { parse_mode: 'Markdown' }
     );
   }
 
-  // For non-admin users: validate if it's a receipt
-  const fileInfo = extractFileInfo(message);
-  
-  if (!fileInfo) {
-    try {
-      await ctx.deleteMessage();
-    } catch (err) {
-      console.log('Could not delete message:', err.message);
-    }
-    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
-  }
-
-  // Check if user is already paid
+  // Check if user already paid
   if (isPaidUser(userId)) {
-    try {
-      await ctx.deleteMessage();
-    } catch (err) {
-      console.log('Could not delete message:', err.message);
-    }
-    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመው በሙሉ አቅም በመጠቀም ላይ ይገኛሉ። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል።");
   }
 
-  // VALIDATE THE RECEIPT
+  const fileInfo = extractFileInfo(message);
+  if (!fileInfo) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("⚠️ እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
+  }
+
+  // Validate receipt
   const caption = message.caption || "";
-  const validationResult = await validateBankReceipt(
-    fileInfo.fileId,
-    caption,
-    fileInfo.fileName,
-    fileInfo.type
-  );
+  const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
 
-  console.log(`Receipt validation for user ${userId}:`, validationResult);
-
-  // If NOT a valid receipt, delete and warn the user
-  if (!validationResult.isValid) {
-    try {
-      await ctx.deleteMessage();
-    } catch (err) {
-      console.log('Could not delete message:', err.message);
-    }
-    
+  if (!validation.isValid) {
+    try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply(
       `❌ ይህ የባንክ ሪሲት አይደለም!\n\n` +
-      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት ይላኩ።\n\n` +
-      `📋 ትክክለኛ ሪሲት የሚከተሉትን መያዝ አለበት፦\n` +
-      `• የባንክ ስም\n` +
-      `• የሂሳብ ቁጥር\n` +
-      `• የተከፈለ ገንዘብ መጠን\n` +
-      `• የክፍያ ቀን እና ሰዓት\n` +
-      `• የተቀባይ ስም (Matewos Getahun Seifu)`
+      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት ይላኩ።`
     );
   }
 
-  // If it IS a valid receipt, process it
+  // Valid receipt - process it
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
-    // Send the receipt to your PRIVATE Telegram account (@Sealilenemariyammsle12we19)
+    // Forward to admin
     const forwardedMsg = await ctx.telegram.forwardMessage(
-      ADMIN_ID,  // Your private account ID
+      ADMIN_ID,
       ctx.chat.id,
       message.message_id
     );
@@ -860,21 +678,16 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
     db.pendingReceipts[forwardedMsg.message_id] = {
       userId: userId,
       orderNumber: orderNumber,
-      validationConfidence: validationResult.confidence,
-      validationReasons: validationResult.reasons
+      confidence: validation.confidence
     };
 
     await ctx.telegram.sendMessage(
       ADMIN_ID,
-      `📥 **አዲስ የተረጋገጠ የክፍያ ሪሲት ደርሷል!**\n\n` +
-      `🧾 **Order No:** \`#${orderNumber}\`\n` +
-      `👤 **ተጠቃሚ ID:** \`${userId}\`\n` +
-      `👤 **Username:** @${ctx.from.username || 'የለውም'}\n` +
-      `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
-      `📁 **File Type:** \`${fileInfo.type}\`\n` +
-      `✅ **Validation Confidence:** \`${validationResult.confidence}%\`\n` +
-      `📋 **Validation Reasons:** ${validationResult.reasons}\n\n` +
-      `⚠️ **Please verify the receipt manually before approving!**`,
+      `📥 **አዲስ ሪሲት**\n\n` +
+      `🧾 Order: #${orderNumber}\n` +
+      `👤 User: ${userId}\n` +
+      `✅ Confidence: ${validation.confidence}%\n` +
+      `📋 ${validation.reasons}`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -886,21 +699,21 @@ bot.on(['photo', 'document', 'video', 'audio', 'voice', 'animation', 'sticker'],
       }
     );
 
-    // Send confirmation to user
     ctx.reply(
-      `✅ የሪሲትዎ መረጋገጫ ተሳክቷል!\n\n` +
-      `🧾 **የትዕዛዝ ቁጥርዎ (Order No):** \`#${orderNumber}\`\n` +
-      `📊 **የማረጋገጫ ደረጃ:** \`${validationResult.confidence}%\`\n\n` +
-      `አድሚኑ መርምሮ በጥቂት ደቂቃዎች ውስጥ አገልግሎቱን ይከፍትልዎታል!`, 
-      { parse_mode: 'Markdown' }
+      `✅ ሪሲትዎ ተረጋግጧል!\n\n` +
+      `🧾 Order: #${orderNumber}\n` +
+      `📊 Confidence: ${validation.confidence}%\n\n` +
+      `አድሚኑ በጥቂት ደቂቃዎች ውስጥ ያጸድቀዋል!`
     );
-    
   } catch (error) {
-    console.error('Error processing receipt:', error);
-    ctx.reply("⚠️ ሪሲትዎን ማስኬድ አልቻልኩም። እባክዎን በቀጥታ ወደ አድሚን ይላኩ።");
+    console.error('Error:', error);
+    ctx.reply("⚠️ ሪሲትዎን ማስኬድ አልቻልኩም።");
   }
 });
 
+// ==========================================
+// 10. ADMIN ACTIONS
+// ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   const targetUserId = parseInt(ctx.match[1]);
   const orderNumber = ctx.match[2];
@@ -913,10 +726,10 @@ bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
 
   ctx.telegram.sendMessage(
     targetUserId,
-    `✅ የትዕዛዝ ቁጥር #${orderNumber} ክፍያዎ በትክክል ተቀባይነት አግኝቷል! ከአሁን በኋላ ሁሉንም መጽሐፍት ማውረድና መጠቀም ይችላሉ።`
+    `✅ ክፍያ #${orderNumber} ተቀባይነት አግኝቷል! ሁሉንም መጽሐፍት ማውረድ ይችላሉ።`
   );
 
-  ctx.editMessageText(`✅ የ ተጠቃሚ ${targetUserId} ክፍያ (Order #${orderNumber}) ጸድቋል።`);
+  ctx.editMessageText(`✅ ክፍያ #${orderNumber} ጸድቋል`);
 });
 
 bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
@@ -925,17 +738,17 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 
   ctx.telegram.sendMessage(
     targetUserId,
-    `❌ የትዕዛዝ ቁጥር #${orderNumber} ሪሲትዎ ውድቅ ተደርጓል። እባክዎን ትክክለኛ ያልተደገመ ሪሲት ይላኩ።`
+    `❌ ክፍያ #${orderNumber} ውድቅ ተደርጓል። እባክዎን ትክክለኛ ሪሲት ይላኩ።`
   );
 
-  ctx.editMessageText(`❌ የ ተጠቃሚ ${targetUserId} ሪሲት (Order #${orderNumber}) ውድቅ ተደርጓል።`);
+  ctx.editMessageText(`❌ ክፍያ #${orderNumber} ውድቅ ተደርጓል`);
 });
 
 // ==========================================
-// 10. SEARCH LOGIC
+// 11. SEARCH
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
-  ctx.reply("እባክዎን ማንበብ የሚፈልጉትን የመጽሐፍ ስም ወይም ቁልፍ ቃል ያስገቡ፦");
+  ctx.reply("እባክዎን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 bot.on('text', (ctx) => {
@@ -957,68 +770,26 @@ bot.on('text', (ctx) => {
   });
 
   if (matches.length === 0) {
-    return ctx.reply("ምንም የተዛመደ መጽሐፍ አልተገኘም። እባክዎን የቃሉን አጻጻፍ አስተካክለው ድጋሚ ይሞክሩ።");
+    return ctx.reply("ምንም መጽሐፍ አልተገኘም።");
   }
 
   const buttons = matches.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.catKey}_${book.id}`)
   ]);
 
-  ctx.reply(`🔍 የፍለጋ ውጤቶች (${matches.length} ተገኝተዋል)፦`, Markup.inlineKeyboard(buttons));
+  ctx.reply(`🔍 ውጤቶች (${matches.length})፦`, Markup.inlineKeyboard(buttons));
 });
 
 // ==========================================
-// 11. ADMIN DASHBOARD & COMMANDS
+// 12. ADMIN COMMANDS
 // ==========================================
-bot.command('admin', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
-
-  ctx.reply(
-    "👨‍💻 እንኳን ወደ አድሚን ዳሽቦርድ በሰላም መጡ",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("📊 ስታቲስቲክስ (/stats)", "admin_stats")],
-      [Markup.button.callback("📢 ብሮድካስት (/broadcast)", "admin_broadcast_help")]
-    ])
-  );
-});
-
 bot.command('stats', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
 
   const totalUsers = Object.keys(db.users).length;
   const paidUsers = Object.values(db.users).filter(u => u.is_paid).length;
-  const freeUsers = totalUsers - paidUsers;
 
-  ctx.reply(`📊 የአጠቃቀም ስታቲስቲክስ፦\n\n• ጠቅላላ ተጠቃሚዎች፦ ${totalUsers}\n• ክፍያ የፈጸሙ፦ ${paidUsers}\n• ነፃ ተጠቃሚዎች፦ ${freeUsers}`);
-});
-
-bot.action('admin_stats', (ctx) => {
-  const totalUsers = Object.keys(db.users).length;
-  const paidUsers = Object.values(db.users).filter(u => u.is_paid).length;
-  const freeUsers = totalUsers - paidUsers;
-
-  ctx.editMessageText(`📊 የአጠቃቀም ስታቲስቲክስ፦\n\n• ጠቅላላ ተጠቃሚዎች፦ ${totalUsers}\n• ክፍያ የፈጸሙ፦ ${paidUsers}\n• ነፃ ተጠቃሚዎች፦ ${freeUsers}`);
-});
-
-bot.command('broadcast', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
-
-  const message = ctx.message.text.replace('/broadcast', '').trim();
-  if (!message) {
-    return ctx.reply("እባክዎን የሚላከውን መልእክት አያይዘው ያስገቡ።\nምሳሌ፦ `/broadcast አዲስ መጽሐፍ ተጨምሯል!`");
-  }
-
-  const userIds = Object.keys(db.users);
-  let count = 0;
-
-  userIds.forEach(id => {
-    ctx.telegram.sendMessage(id, `📢 ማስታወቂያ፦\n\n${message}`).then(() => {
-      ctx.telegram.pinChatMessage(id, message.id).catch(() => {});
-    }).catch(() => {});
-    count++;
-  });
-
-  ctx.reply(`መልእክቱ ለ ${count} ተጠቃሚዎች ተልኳል።`);
+  ctx.reply(`📊 ስታቲስቲክስ\n\n• ጠቅላላ: ${totalUsers}\n• ክፍያ የፈጸሙ: ${paidUsers}\n• ነፃ: ${totalUsers - paidUsers}`);
 });
 
 bot.command('backup', (ctx) => {
@@ -1027,23 +798,23 @@ bot.command('backup', (ctx) => {
   const backupData = JSON.stringify(db, null, 2);
   ctx.replyWithDocument({
     source: Buffer.from(backupData, 'utf-8'),
-    filename: `database_backup_${Date.now()}.json`
-  }, { caption: "📦 የዳታቤዝ ባካፕ ፋይል" });
+    filename: `backup_${Date.now()}.json`
+  });
 });
 
 // ==========================================
-// 12. BOT LAUNCH & ERROR HANDLING
+// 13. LAUNCH
 // ==========================================
 bot.catch((err, ctx) => {
-  console.error(`Error for ${ctx.updateType}`, err);
+  console.error(`Error:`, err);
 });
 
 bot.launch({
   dropPendingUpdates: true
 }).then(() => {
-  console.log("Bot is running successfully...");
+  console.log("Bot is running...");
 }).catch((err) => {
-  console.error("Failed to launch bot:", err);
+  console.error("Failed to launch:", err);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
