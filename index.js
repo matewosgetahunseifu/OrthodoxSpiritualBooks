@@ -287,7 +287,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 5. ADMIN FILE ID GENERATOR (መጀመሪያ የተቀመጠ)
+// 5. ADMIN FILE ID GENERATOR (የተስተካከለ)
 // ==========================================
 bot.on(['document', 'photo', 'audio', 'video'], async (ctx, next) => {
   if (ctx.from && ctx.from.id === ADMIN_ID) {
