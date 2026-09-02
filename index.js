@@ -304,7 +304,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
       ],
       [
         Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("By English ", "lang_eng")
+        Markup.button.callback("In English", "lang_eng")
       ]
     ])
   );
