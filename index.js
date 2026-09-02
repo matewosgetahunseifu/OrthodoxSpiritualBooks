@@ -50,7 +50,7 @@ setInterval(async () => {
 }, 3 * 60 * 1000);
 
 // ==========================================
-// 3. BOOKS DATABASE (አሁን ረጅም File ID ማስገባት ትችላላችሁ)
+// 3. BOOKS DATABASE
 // ==========================================
 const booksDatabase = {
   // --- 3.1. በግዕዝ ---
@@ -270,13 +270,11 @@ function registerUser(from) {
     db.users[from.id] = {
       username: from.username ? `@${from.username}` : "No Username",
       is_paid: false,
-      registration_date: new Date().toISOString(),
-      last_page_read: 0
+      registration_date: new Date().toISOString()
     };
   }
 }
 
-// መጽሐፍ በ Category እና ID ፍለጋ
 function findBook(catKey, bookId) {
   if (!booksDatabase[catKey]) return null;
   return booksDatabase[catKey].find(b => b.id === bookId);
@@ -289,7 +287,42 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 5. COMMANDS & MAIN MENU LOGIC
+// 5. ADMIN FILE ID GENERATOR (የመጀመሪያ ቦታ የተቀመጠ)
+// ==========================================
+bot.on(['document', 'photo', 'audio', 'video'], async (ctx, next) => {
+  if (ctx.from.id === ADMIN_ID) {
+    let fileId = "";
+    let fileName = "ፋይል";
+
+    if (ctx.message.document) {
+      fileId = ctx.message.document.file_id;
+      fileName = ctx.message.document.file_name || "Document";
+    } else if (ctx.message.photo) {
+      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
+      fileName = "Photo";
+    } else if (ctx.message.audio) {
+      fileId = ctx.message.audio.file_id;
+      fileName = ctx.message.audio.file_name || "Audio";
+    } else if (ctx.message.video) {
+      fileId = ctx.message.video.file_id;
+      fileName = "Video";
+    }
+
+    if (fileId) {
+      return ctx.reply(
+        `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
+        `📄 **File Name:** \`${fileName}\`\n` +
+        `🆔 **File ID:** \`${fileId}\`\n\n` +
+        `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+  }
+  return next();
+});
+
+// ==========================================
+// 6. COMMANDS & MAIN MENU LOGIC
 // ==========================================
 bot.start((ctx) => {
   registerUser(ctx.from);
@@ -328,7 +361,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 });
 
 // ==========================================
-// 6. CATEGORY ROUTING & CALLBACK HANDLERS
+// 7. CATEGORY ROUTING & CALLBACK HANDLERS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -492,7 +525,6 @@ bot.action(/^cat_(.+)$/, (ctx) => {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
 
-  // አጭር callback_data፦ gbook_CATKEY_ID
   const buttons = books.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${catKey}_${book.id}`)
   ]);
@@ -503,7 +535,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 7. BOOK DELIVERY & MONETIZATION LOGIC
+// 8. BOOK DELIVERY & MONETIZATION LOGIC
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -546,30 +578,10 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 8. AUTOMATED FILE PROCESSING & RECEIPT FILTERING
+// 9. USER RECEIPT FILTERING & PROCESSING
 // ==========================================
 bot.on(['photo', 'document'], async (ctx) => {
   const userId = ctx.from.id;
-
-  if (userId === ADMIN_ID) {
-    let fileId = "";
-    let fileName = "ፋይል (Photo)";
-
-    if (ctx.message.document) {
-      fileId = ctx.message.document.file_id;
-      fileName = ctx.message.document.file_name || "Document";
-    } else if (ctx.message.photo) {
-      fileId = ctx.message.photo[ctx.message.photo.length - 1].file_id;
-    }
-
-    return ctx.reply(
-      `🔑 **የፋይሉ ID ተዘጋጅቷል (Admin Only)**\n\n` +
-      `📄 **File Name:** \`${fileName}\`\n` +
-      `🆔 **File ID:** \`${fileId}\`\n\n` +
-      `ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
-      { parse_mode: 'Markdown' }
-    );
-  }
 
   const caption = ctx.message.caption || "";
   const docName = ctx.message.document ? ctx.message.document.file_name : "";
@@ -663,7 +675,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. SEARCH LOGIC
+// 10. SEARCH LOGIC
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("እባክዎን ማንበብ የሚፈልጉትን የመጽሐፍ ስም ወይም ቁልፍ ቃል ያስገቡ፦");
@@ -699,7 +711,7 @@ bot.on('text', (ctx) => {
 });
 
 // ==========================================
-// 10. ADMIN DASHBOARD & COMMANDS
+// 11. ADMIN DASHBOARD & COMMANDS
 // ==========================================
 bot.command('admin', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
@@ -763,7 +775,7 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 11. BOT LAUNCH & ERROR HANDLING
+// 12. BOT LAUNCH & ERROR HANDLING
 // ==========================================
 bot.catch((err, ctx) => {
   console.error(`Error for ${ctx.updateType}`, err);
