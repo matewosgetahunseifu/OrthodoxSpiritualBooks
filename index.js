@@ -54,6 +54,13 @@ setInterval(async () => {
 // ==========================================
 const booksDatabase = {
   // --- 3.1. በግዕዝ ---
+  
+  
+  
+  //ሕግና ሥርዓት 
+  
+  
+  
   "geez_law": [
     { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
@@ -61,6 +68,12 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ታሪክ 
+  
+  
+  
   "geez_hist": [
     { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
@@ -68,13 +81,35 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ገድል ድርሳንና ተአምር
+  
+  
+  
   "geez_gdsl": [
-    { id: "1", file_id: "DUMMY_GEEZ_GDSL_01", title: "ድርሳነ ሚካኤል (ግዕዝ)" },
-    { id: "2", file_id: "DUMMY_GEEZ_GDSL_02", title: "ድርሳነ ገብርኤል (ግዕዝ)" },
-    { id: "3", file_id: "DUMMY_GEEZ_GDSL_03", title: "ተአምረ ማርያም (ግዕዝ)" },
-    { id: "4", file_id: "DUMMY_GEEZ_GDSL_04", title: "ገድለ ተክለ ሃይማኖት (ግዕዝ)" },
-    { id: "5", file_id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
+    { id: "1", file_id: "BQACAgQAAxkBAAPZapjWdXjCEeNoOjlRMK0G6pX6Bk0AAj8KAAL6HClRQKqGVFXiKK49BA", title: "ድርሳነ ሚካኤል ብራና" },
+    { id: "2", file_id: "BQACAgQAAxkBAAPfapjXcgpreKHIrBgNQGEua7HCmTkAAjwKAAJ9PIlTM8CfaZvR-2k9BA", title: "ድርሳነ ሰብዓቱ መላእክት " },
+    { id: "3", file_id: "BQACAgQAAxkBAAPhapjZBSJoVscB4rjwsfDWbSwHxoAAoEWAAIMhmhQkIh7mGtt3K09BA", title: "ድርሳነሊ ገብርኤል ብራና" },
+    { id: "4", file_id: "BQACAgQAAxkBAAPjapjZhdpHFvYDvcFIkczDUW9tLIAAlMdAAKS69FTbBiiXs-zys9BA", title: "ድርሳነ ሚካኤል ብራና" },
+    {
+      id:"5",file_id:"BQACAgQAAxkBAAPqapjbmRP3A_QVTyhXBZWLS5TjLGoAAtgNAAJtwMBTHiiUSHg9EAY9BA",title:"ድርሳነ ገብርኤል"
+    },
+    {id:"6", file_id:"BQACAgQAAxkBAAIBDGqY_SozbC0I2Fi7ge5kQMckNxwqAAJ5FQACjWfpUmi2j5U2zN51PQQ", title:"ድርሳን ዘነገሮሙ እግዚእነ ለሐዋርያት "
+      {
+        id:"7", file_id:"BQACAgQAAxkBAAIBDmqY_dtm16Rhp9jSESjwVhCdAaznAAIsDgACEtFpUV-I4u72ln7CPQQ",title:"ድርሳነ ቅዱስ ሩፋኤል"
+      },
+     {
+       id:"8",file_id:"BQACAgEAAxkBAAIBEGqY_us4NhTLt8P2KJX-VWtR4TraAAJRAgACYHfoRvu7BfQqD_cVPQQ", title:"ድርሳነ ማሕየዊ ምስለ መልክዑ"
+     },
+    { id: "∞", file_id: "DUMMY_GEEZ_GDSL_05", title: "We add soon/በቅርቡ እንጨምራለን" }
   ],
+  
+  
+  //ግእዝ ብሉይ ኪዳን
+  
+  
+  
   "geez_ot": [
     { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
     { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
@@ -82,6 +117,12 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
   ],
+  
+  
+  //ግእዝ ሐዲስ ኪዳን
+  
+  
+  
   "geez_nt": [
     { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
     { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
@@ -91,6 +132,12 @@ const booksDatabase = {
   ],
 
   // --- 3.2. በግዕዝ አማርኛ ---
+  
+  
+  //ሕግ እና ሥርዓት 
+  
+  
+  
   "ga_law": [
     { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
     { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
@@ -98,6 +145,12 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
     { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
   ],
+  
+  
+  //ግእዝ አማርኛ ታሪክ
+  
+  
+  
   "ga_hist": [
     { id: "1", file_id: "DUMMY_GA_HIST_01", title: "ዜና አይሁድ ትርጓሜ" },
     { id: "2", file_id: "DUMMY_GA_HIST_02", title: "መጽሐፈ አክሱም ትርጓሜ" },
@@ -105,6 +158,12 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GA_HIST_04", title: "ዜና እስክንድር ትርጓሜ" },
     { id: "5", file_id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ" }
   ],
+  
+  
+  //ግእዝ አማርኛ ገድል
+  
+  
+  
   "ga_gdsl": [
     { id: "1", file_id: "BQACAgQAAxkBAAPWaphINHM2lRkznNEzSJovZdpcrzwAApMdAALp9MhQlhG908oUFio9BA", title: "ድርሳነ ሚካኤል" },
     { id: "2", file_id: "BQACAgQAAxkBAAP0apjiCWvVv63N4thgtKqSSSTG9mAAAtUhAAKuXclQxitdVaULcDM9BA", title: "ድርሳነ ራጉኤል" },
@@ -117,7 +176,7 @@ const booksDatabase = {
     
     
     {
-      id:"coming soon", file_id:"ghhguuug",title:"we add soon/በቅርቡ ችንጨምራለን"
+      id:"∞", file_id:"ghhguuug",title:"we add soon/በቅርቡ ችንጨምራለን"
     }
   ],
   "ga_ot": [
@@ -136,8 +195,13 @@ const booksDatabase = {
     { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ" },
     { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ" }
   ],
+  
+  
 
   // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
+  
+  
+  
   "geez_edu": [
     { 
       id: "1", 
@@ -149,8 +213,17 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
     { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
   ],
+  
+  
+  
 
   // --- 3.4. በአማርኛ ---
+  
+  
+  //አማርኛ ሕግና ሥርዓት 
+  
+  
+  
   "amh_law": [
     { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
     { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
@@ -158,6 +231,12 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ" },
     { id: "5", file_id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት" }
   ],
+  
+  
+  //አማርኛ ትስሪክ
+  
+  
+  
   "amh_hist": [
     { id: "1", file_id: "DUMMY_AMH_HIST_01", title: "የኢትዮጵያ ቤተ ክርስቲያን ታሪክ" },
     { id: "2", file_id: "DUMMY_AMH_HIST_02", title: "የዓለም ቤተ ክርስቲያን ታሪክ" },
@@ -165,12 +244,18 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_AMH_HIST_04", title: "የቅዱሳን አበው ታሪክ" },
     { id: "5", file_id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ" }
   ],
+  
+  
+  //አማርኛ ድርሳን ገድል እና ተአምር
+  
+  
+  
   "amh_gdsl": [
     { id: "1", file_id: "BQACAgQAAxkBAAIBEmqY_2wbgWxZz0w-DWy5K9vxVTh9AALXDgACKQABkFG92rcZN_zt1j0E", title: "የማኅበረ መላእክት ድርሳን" },
     { id: "2", file_id: "BQACAgQAAxkBAAPmapjaUtdihEG1XhcgCcLy7b5BI0AAtEhAAKuXclQ9tP3te9qdCs9BA", title: "ድርሳነ ፋኑኤል" },
     { id: "3", file_id: "BQACAgQAAxkBAAPaapjWdaw1Ga6g7FxtNE60cof2XMIAAncaAAKoDpFTQGuC3QGlKiU9BA", title: "ድርሳነ ገብርኤል" },
     { id: "4", file_id: "BQACAgQAAxkBAAPdapjXFTvN6JURihRCBgMWvp-FMiwAAlMOAAJ-QsFTMzSaI8GVtj49BA", title: "ድርሳነ ማሕየዊ" },
-    { id: "5", file_id: "DUMMY_AMH_GDSL_05", title: "ገድለ ጊዮርጊስ በአማርኛ" }
+    { id: "∞", file_id: "DUMMY_AMH_GDSL_05", title: "We add son/በቅርቡ እንጨምራለን" }
   ],
   "amh_eth": [
     { id: "1", file_id: "DUMMY_AMH_ETH_01", title: "ክርስቲያናዊ ሥነ ምግባር" },
