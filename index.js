@@ -53,6 +53,7 @@ setInterval(async () => {
 // 3. BOOKS DATABASE
 // ==========================================
 const booksDatabase = {
+  // --- 3.1. በግዕዝ ---
   "geez_law": [
     { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
@@ -88,6 +89,8 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
   ],
+
+  // --- 3.2. በግዕዝ አማርኛ ---
   "ga_law": [
     { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
     { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
@@ -125,6 +128,8 @@ const booksDatabase = {
     { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ" },
     { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ" }
   ],
+
+  // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
   "geez_edu": [
     { 
       id: "1", 
@@ -136,6 +141,8 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
     { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
   ],
+
+  // --- 3.4. በአማርኛ ---
   "amh_law": [
     { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
     { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
@@ -213,6 +220,8 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4" },
     { id: "5", file_id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
   ],
+
+  // --- 3.5. In English ---
   "eng_law": [
     { id: "1", file_id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
     { id: "2", file_id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
@@ -379,9 +388,17 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
   ctx.reply(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
-      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
-      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
+      [
+        Markup.button.callback("በግዕዝ", "lang_geez"),
+        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
+      ],
+      [
+        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
+      ],
+      [
+        Markup.button.callback("በአማርኛ", "lang_amh"),
+        Markup.button.callback("In English", "lang_eng")
+      ]
     ])
   );
 });
@@ -525,9 +542,17 @@ bot.action("back_to_lang", (ctx) => {
   ctx.editMessageText(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
-      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
-      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
+      [
+        Markup.button.callback("በግዕዝ", "lang_geez"),
+        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
+      ],
+      [
+        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
+      ],
+      [
+        Markup.button.callback("በአማርኛ", "lang_amh"),
+        Markup.button.callback("In English", "lang_eng")
+      ]
     ])
   );
 });
@@ -593,13 +618,11 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. FILE HANDLER - FIXED FOR FORWARDED FILES
+// 9. FILE HANDLER - COMPLETE SOLUTION FOR ALL CASES
 // ==========================================
-// Function to extract file info from ANY message type
+
+// Helper function to extract file info from ANY message
 function extractFileInfo(msg) {
-  console.log('🔍 Analyzing message type:', msg.document ? 'Document' : msg.photo ? 'Photo' : 'Other');
-  
-  // Check for document directly
   if (msg.document) {
     return {
       type: 'document',
@@ -609,8 +632,6 @@ function extractFileInfo(msg) {
       fileSize: msg.document.file_size || 0
     };
   }
-  
-  // Check for photo
   if (msg.photo && msg.photo.length > 0) {
     const photo = msg.photo[msg.photo.length - 1];
     return {
@@ -621,8 +642,6 @@ function extractFileInfo(msg) {
       fileSize: photo.file_size || 0
     };
   }
-  
-  // Check for video
   if (msg.video) {
     return {
       type: 'video',
@@ -632,8 +651,6 @@ function extractFileInfo(msg) {
       fileSize: msg.video.file_size || 0
     };
   }
-  
-  // Check for audio
   if (msg.audio) {
     return {
       type: 'audio',
@@ -643,8 +660,6 @@ function extractFileInfo(msg) {
       fileSize: msg.audio.file_size || 0
     };
   }
-  
-  // Check for voice
   if (msg.voice) {
     return {
       type: 'voice',
@@ -654,8 +669,6 @@ function extractFileInfo(msg) {
       fileSize: msg.voice.file_size || 0
     };
   }
-  
-  // Check for animation (GIF)
   if (msg.animation) {
     return {
       type: 'animation',
@@ -665,8 +678,6 @@ function extractFileInfo(msg) {
       fileSize: msg.animation.file_size || 0
     };
   }
-  
-  // Check for sticker
   if (msg.sticker) {
     return {
       type: 'sticker',
@@ -676,80 +687,93 @@ function extractFileInfo(msg) {
       fileSize: msg.sticker.file_size || 0
     };
   }
-  
-  // 🔑 CRITICAL FIX: Handle FORWARDED messages
-  // If the message is forwarded from a channel/group, the file might not be accessible directly
-  // In this case, we need to tell the user to send the file directly
-  if (msg.forward_from_chat || msg.forward_from) {
-    console.log('📤 Forwarded message detected - file info not directly accessible');
-    return null;
-  }
-  
   return null;
 }
 
-// Main file handler - listens to ALL file types
+// Main file handler - handles ALL cases
 bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
   const userId = ctx.from.id;
   const message = ctx.message;
   
   console.log(`📁 File received from user ${userId}`);
-  console.log(`📄 Message type: ${message.document ? 'Document' : message.photo ? 'Photo' : 'Other'}`);
-  console.log(`📤 Is forwarded: ${message.forward_from_chat ? 'Yes' : 'No'}`);
 
-  // 🔑 ADMIN: ALWAYS show File ID (this is the most important part!)
-  // This runs BEFORE any other checks
+  // ==========================================
+  // 🔑 ADMIN: Get File ID - Handles ALL cases!
+  // ==========================================
   if (userId === ADMIN_ID) {
-    // Extract file info
-    const fileInfo = extractFileInfo(message);
     
-    // If file info is null (forwarded file), tell admin to send directly
-    if (!fileInfo) {
+    // CASE 1: Check if it's a forwarded message
+    const isForwarded = message.forward_from_chat || message.forward_from;
+    
+    // Try to get file info directly
+    let fileInfo = extractFileInfo(message);
+    
+    // If we have file info, show it!
+    if (fileInfo) {
+      let forwardedNote = isForwarded ? '\n📤 **Forwarded File** - ID extracted successfully!' : '';
+      
       return ctx.reply(
-        `⚠️ **እባክዎትን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)!**\n\n` +
-        `የተላከው ፋይል ከሌላ ቻናል/ግሩፕ የተላለፈ (Forwarded) ስለሆነ የ File ID መረጃውን ማውጣት አልቻልኩም።\n\n` +
-        `✅ መፍትሔው፦\n` +
-        `1️⃣ ፋይሉን ወደ ኮምፒውተር/ስልክዎ ያውርዱ (Download)\n` +
-        `2️⃣ ከዚያ በቀጥታ ወደዚህ ቦት ይላኩ (Send as file)\n` +
-        `3️⃣ የ File ID መረጃውን ያገኛሉ`,
+        `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
+        `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
+        `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
+        `📁 **File Type:** \`${fileInfo.type}\`\n` +
+        `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
+        `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n` +
+        `${forwardedNote}\n\n` +
+        `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።\n\n` +
+        `📝 **ለመጠቀም መመሪያ:**\n` +
+        `1️⃣ ከላይ ያለውን File ID ይቅዱ\n` +
+        `2️⃣ በ booksDatabase ውስጥ ተገቢውን መጽሐፍ ይፈልጉ\n` +
+        `3️⃣ የ 'file_id' እሴትን በተቀዳው ID ይቀይሩ`,
         { parse_mode: 'Markdown' }
       );
     }
     
-    return ctx.reply(
-      `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
-      `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
-      `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
-      `📁 **File Type:** \`${fileInfo.type}\`\n` +
-      `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
-      `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n\n` +
-      `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
-      { parse_mode: 'Markdown' }
-    );
+    // CASE 2: If it's forwarded but we couldn't get file info directly
+    if (isForwarded) {
+      return ctx.reply(
+        `⚠️ **ይህ የተላለፈ (Forwarded) ፋይል ነው!**\n\n` +
+        `ከቻናል የተላለፈ ፋይል ላይ File ID ማግኘት አይቻልም።\n\n` +
+        `✅ **መፍትሔዎች:**\n\n` +
+        `**1️⃣ በቀጥታ ይላኩ (Recommended):**\n` +
+        `   • ፋይሉን ያውርዱ (Download)\n` +
+        `   • በቀጥታ ወደዚህ ቦት ይላኩ\n` +
+        `   • File ID ያገኛሉ\n\n` +
+        `**2️⃣ @get_id_bot ይጠቀሙ:**\n` +
+        `   • ፋይሉን ወደ @get_id_bot ያስተላልፉ\n` +
+        `   • File ID ይሰጥዎታል\n\n` +
+        `**3️⃣ /getfileid ትዕዛዝ ይጠቀሙ:**\n` +
+        `   • ፋይሉን ወደዚህ ቦት ያስተላልፉ\n` +
+        `   • በፋይሉ ላይ /getfileid ይላኩ (Reply)`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+    
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ።");
   }
 
-  // For non-admin users: Check if already paid
+  // ==========================================
+  // For NON-ADMIN users: Receipt validation
+  // ==========================================
+  
+  // Check if user already paid
   if (isPaidUser(userId)) {
     try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
   }
 
-  // For non-admin users: Extract file info
+  // Extract file info
   const fileInfo = extractFileInfo(message);
   
   if (!fileInfo) {
     try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply(
-      `⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።\n\n` +
-      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት በቀጥታ ይላኩ።`
-    );
+    return ctx.reply("⚠️ እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
   }
 
-  // For non-admin users: Validate receipt
+  // Validate receipt
   const caption = message.caption || "";
   const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
 
-  // If NOT a valid receipt, delete and warn
   if (!validation.isValid) {
     try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply(
@@ -758,11 +782,10 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
     );
   }
 
-  // Valid receipt - process it
+  // Process valid receipt
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
-    // Forward to admin's private account
     const forwardedMsg = await ctx.telegram.forwardMessage(
       ADMIN_ID,
       ctx.chat.id,
@@ -806,7 +829,113 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
 });
 
 // ==========================================
-// 10. ADMIN ACTIONS
+// 10. GET FILE ID COMMAND - For forwarded files!
+// ==========================================
+bot.command('getfileid', async (ctx) => {
+  // Only admin can use this
+  if (ctx.from.id !== ADMIN_ID) {
+    return ctx.reply("⚠️ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!");
+  }
+  
+  const reply = ctx.message.reply_to_message;
+  
+  if (!reply) {
+    return ctx.reply(
+      `⚠️ **እባክዎትን ፋይሉን ለዚህ መልእክት ይላኩ!**\n\n` +
+      `📌 **አጠቃቀም:**\n` +
+      `1️⃣ ፋይሉን ወደዚህ ቦት ያስተላልፉ (Forward)\n` +
+      `2️⃣ በተላለፈው ፋይል ላይ /getfileid ይላኩ (Reply)\n` +
+      `3️⃣ File ID ያገኛሉ!`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+  
+  let fileId = null;
+  let fileName = '';
+  let fileType = '';
+  
+  // Check all possible file types in the replied message
+  if (reply.document) {
+    fileId = reply.document.file_id;
+    fileName = reply.document.file_name || 'Document.pdf';
+    fileType = 'document';
+  } else if (reply.photo && reply.photo.length > 0) {
+    const photo = reply.photo[reply.photo.length - 1];
+    fileId = photo.file_id;
+    fileName = 'Photo.jpg';
+    fileType = 'photo';
+  } else if (reply.video) {
+    fileId = reply.video.file_id;
+    fileName = reply.video.file_name || 'Video.mp4';
+    fileType = 'video';
+  } else if (reply.audio) {
+    fileId = reply.audio.file_id;
+    fileName = reply.audio.file_name || 'Audio.mp3';
+    fileType = 'audio';
+  } else if (reply.voice) {
+    fileId = reply.voice.file_id;
+    fileName = 'Voice.ogg';
+    fileType = 'voice';
+  } else if (reply.animation) {
+    fileId = reply.animation.file_id;
+    fileName = 'Animation.gif';
+    fileType = 'animation';
+  } else if (reply.sticker) {
+    fileId = reply.sticker.file_id;
+    fileName = 'Sticker.webp';
+    fileType = 'sticker';
+  }
+  
+  if (fileId) {
+    // Check if the file was forwarded
+    const isForwarded = reply.forward_from_chat || reply.forward_from;
+    let forwardedNote = isForwarded ? '📤 **Forwarded File** - ID extracted successfully!' : '';
+    
+    ctx.reply(
+      `🔑 **File ID ተገኝቷል!**\n\n` +
+      `📄 **File Name:** \`${fileName}\`\n` +
+      `🆔 **File ID:** \`${fileId}\`\n` +
+      `📁 **File Type:** \`${fileType}\`\n` +
+      `${forwardedNote}\n\n` +
+      `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
+      { parse_mode: 'Markdown' }
+    );
+  } else {
+    ctx.reply(
+      `⚠️ ይህ መልእክት ፋይል የለውም!\n\n` +
+      `📌 እባክዎትን ፋይል ያለው መልእክት ላይ Reply ያድርጉ።`
+    );
+  }
+});
+
+// ==========================================
+// 11. HELP COMMAND
+// ==========================================
+bot.command('help', (ctx) => {
+  if (ctx.from.id !== ADMIN_ID) return;
+  
+  ctx.reply(
+    `📚 **Bot Commands & Help**\n\n` +
+    `**📁 Getting File ID:**\n` +
+    `1️⃣ Send file directly → Auto shows ID\n` +
+    `2️⃣ Forward file → Reply with /getfileid\n` +
+    `3️⃣ Use @get_id_bot for any file\n\n` +
+    `**🔧 Admin Commands:**\n` +
+    `• /stats - View bot statistics\n` +
+    `• /getfileid - Get ID from replied file\n` +
+    `• /backup - Download database backup\n` +
+    `• /help - Show this help\n\n` +
+    `**📚 Book Categories:**\n` +
+    `• Ge'ez: Law, History, Bible\n` +
+    `• Ge'ez-Amharic: All categories\n` +
+    `• Amharic: All categories\n` +
+    `• English: All categories`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// ==========================================
+// 12. ADMIN ACTIONS
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   const targetUserId = parseInt(ctx.match[1]);
@@ -839,7 +968,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 11. SEARCH
+// 13. SEARCH
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("እባክዎን የመጽሐፍ ስም ያስገቡ፦");
@@ -875,7 +1004,7 @@ bot.on('text', (ctx) => {
 });
 
 // ==========================================
-// 12. ADMIN COMMANDS
+// 14. ADMIN COMMANDS
 // ==========================================
 bot.command('stats', (ctx) => {
   if (ctx.from.id !== ADMIN_ID) return;
@@ -897,7 +1026,7 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 13. LAUNCH
+// 15. LAUNCH
 // ==========================================
 bot.catch((err, ctx) => {
   console.error(`Error:`, err);
@@ -907,6 +1036,8 @@ bot.launch({
   dropPendingUpdates: true
 }).then(() => {
   console.log("✅ Bot is running...");
+  console.log("📚 Orthodox Spiritual Books Bot is ready!");
+  console.log("👑 Admin ID:", ADMIN_ID);
 }).catch((err) => {
   console.error("❌ Failed to launch:", err);
 });
