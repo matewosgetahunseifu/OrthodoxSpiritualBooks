@@ -106,11 +106,19 @@ const booksDatabase = {
     { id: "5", file_id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ" }
   ],
   "ga_gdsl": [
-    { id: "1", file_id: "DUMMY_GA_GDSL_01", title: "ድርሳነ ሚካኤል ንባቡና ትርጓሜው" },
-    { id: "2", file_id: "DUMMY_GA_GDSL_02", title: "ድርሳነ ገብርኤል ንባቡና ትርጓሜው" },
-    { id: "3", file_id: "DUMMY_GA_GDSL_03", title: "ተአምረ ማርያም ንባቡና ትርጓሜው" },
-    { id: "4", file_id: "DUMMY_GA_GDSL_04", title: "ገድለ ተክለ ሃይማኖት ትርጓሜ" },
-    { id: "5", file_id: "DUMMY_GA_GDSL_05", title: "ገድለ ጊዮርጊስ ትርጓሜ" }
+    { id: "1", file_id: "BQACAgQAAxkBAAPWaphINHM2lRkznNEzSJovZdpcrzwAApMdAALp9MhQlhG908oUFio9BA", title: "ድርሳነ ሚካኤል" },
+    { id: "2", file_id: "BQACAgQAAxkBAAP0apjiCWvVv63N4thgtKqSSSTG9mAAAtUhAAKuXclQxitdVaULcDM9BA", title: "ድርሳነ ራጉኤል" },
+    { id: "3", file_id: "BQACAgQAAxkBAAPoapjbcyXFg9F4CFUuWjj1-LTQ1OEAAv8WAAK4B1FQGnav1e-AgJc9BA", title: "ድርሳነ ሰንበት" },
+    { id: "4", file_id: "BQACAgQAAxkBAAP-apjsYNMJPvsbCSIwvSEftWz1Or8AAtUaAAIiroFRnGC9dtNUZi89BA", title: "ድርሳነ ዑራኤል" },
+    { id: "5", file_id: "BQACAgQAAxkBAAIBCmqY_KO_j0lGIMgcf-0leltOH1hNAAJ1FAAC45BxUwH6hyap6vD1PQQ", title: "ድርሳነ_መድኃኔ_ዓለም_ገድለ_አቡነ_መባዓ_ጽዮን" },
+    {
+      id:"6", file_id:"BQACAgQAAxkBAAIBFGqY_9c_xTeW1Ox68xksvGHi6qRXAAK1GQACBzpJU7ddXZ-PfJNrPQQ", title:"ድርሳነ ዜና ሥላሴ"
+    },
+    
+    
+    {
+      id:"coming soon", file_id:"ghhguuug",title:"we add soon/በቅርቡ ችንጨምራለን"
+    }
   ],
   "ga_ot": [
     { id: "1", file_id: "DUMMY_GA_OT_01", title: "ኦሪት ዘፍጥረት ንባቡና ትርጓሜው" },
@@ -158,10 +166,10 @@ const booksDatabase = {
     { id: "5", file_id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ" }
   ],
   "amh_gdsl": [
-    { id: "1", file_id: "DUMMY_AMH_GDSL_01", title: "ድርሳነ ሚካኤል በአማርኛ" },
-    { id: "2", file_id: "DUMMY_AMH_GDSL_02", title: "ድርሳነ ገብርኤል በአማርኛ" },
-    { id: "3", file_id: "DUMMY_AMH_GDSL_03", title: "ተአምረ ማርያም በአማርኛ" },
-    { id: "4", file_id: "DUMMY_AMH_GDSL_04", title: "ገድለ ተክለ ሃይማኖት በአማርኛ" },
+    { id: "1", file_id: "BQACAgQAAxkBAAIBEmqY_2wbgWxZz0w-DWy5K9vxVTh9AALXDgACKQABkFG92rcZN_zt1j0E", title: "የማኅበረ መላእክት ድርሳን" },
+    { id: "2", file_id: "BQACAgQAAxkBAAPmapjaUtdihEG1XhcgCcLy7b5BI0AAtEhAAKuXclQ9tP3te9qdCs9BA", title: "ድርሳነ ፋኑኤል" },
+    { id: "3", file_id: "BQACAgQAAxkBAAPaapjWdaw1Ga6g7FxtNE60cof2XMIAAncaAAKoDpFTQGuC3QGlKiU9BA", title: "ድርሳነ ገብርኤል" },
+    { id: "4", file_id: "BQACAgQAAxkBAAPdapjXFTvN6JURihRCBgMWvp-FMiwAAlMOAAJ-QsFTMzSaI8GVtj49BA", title: "ድርሳነ ማሕየዊ" },
     { id: "5", file_id: "DUMMY_AMH_GDSL_05", title: "ገድለ ጊዮርጊስ በአማርኛ" }
   ],
   "amh_eth": [
