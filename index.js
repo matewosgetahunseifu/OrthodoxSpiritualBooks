@@ -53,7 +53,6 @@ setInterval(async () => {
 // 3. BOOKS DATABASE
 // ==========================================
 const booksDatabase = {
-  // --- 3.1. በግዕዝ ---
   "geez_law": [
     { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
@@ -594,11 +593,13 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. FILE HANDLER - FIXED FOR ALL FILE TYPES
+// 9. FILE HANDLER - FIXED FOR FORWARDED FILES
 // ==========================================
 // Function to extract file info from ANY message type
 function extractFileInfo(msg) {
-  // Check for document (PDF, DOC, etc.)
+  console.log('🔍 Analyzing message type:', msg.document ? 'Document' : msg.photo ? 'Photo' : 'Other');
+  
+  // Check for document directly
   if (msg.document) {
     return {
       type: 'document',
@@ -676,6 +677,14 @@ function extractFileInfo(msg) {
     };
   }
   
+  // 🔑 CRITICAL FIX: Handle FORWARDED messages
+  // If the message is forwarded from a channel/group, the file might not be accessible directly
+  // In this case, we need to tell the user to send the file directly
+  if (msg.forward_from_chat || msg.forward_from) {
+    console.log('📤 Forwarded message detected - file info not directly accessible');
+    return null;
+  }
+  
   return null;
 }
 
@@ -686,16 +695,27 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
   
   console.log(`📁 File received from user ${userId}`);
   console.log(`📄 Message type: ${message.document ? 'Document' : message.photo ? 'Photo' : 'Other'}`);
-
-  // Extract file info
-  const fileInfo = extractFileInfo(message);
-  
-  if (!fileInfo) {
-    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።");
-  }
+  console.log(`📤 Is forwarded: ${message.forward_from_chat ? 'Yes' : 'No'}`);
 
   // 🔑 ADMIN: ALWAYS show File ID (this is the most important part!)
+  // This runs BEFORE any other checks
   if (userId === ADMIN_ID) {
+    // Extract file info
+    const fileInfo = extractFileInfo(message);
+    
+    // If file info is null (forwarded file), tell admin to send directly
+    if (!fileInfo) {
+      return ctx.reply(
+        `⚠️ **እባክዎትን ፋይሉን በቀጥታ ይላኩ (Forward ሳያደርጉ)!**\n\n` +
+        `የተላከው ፋይል ከሌላ ቻናል/ግሩፕ የተላለፈ (Forwarded) ስለሆነ የ File ID መረጃውን ማውጣት አልቻልኩም።\n\n` +
+        `✅ መፍትሔው፦\n` +
+        `1️⃣ ፋይሉን ወደ ኮምፒውተር/ስልክዎ ያውርዱ (Download)\n` +
+        `2️⃣ ከዚያ በቀጥታ ወደዚህ ቦት ይላኩ (Send as file)\n` +
+        `3️⃣ የ File ID መረጃውን ያገኛሉ`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+    
     return ctx.reply(
       `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
       `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
@@ -712,6 +732,17 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
   if (isPaidUser(userId)) {
     try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
+  }
+
+  // For non-admin users: Extract file info
+  const fileInfo = extractFileInfo(message);
+  
+  if (!fileInfo) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply(
+      `⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።\n\n` +
+      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት በቀጥታ ይላኩ።`
+    );
   }
 
   // For non-admin users: Validate receipt
