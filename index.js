@@ -52,23 +52,15 @@ setInterval(async () => {
 // ==========================================
 // 3. BOOKS DATABASE
 // ==========================================
-
-// በግእዝ ቋንቋ የተጻፉ መጽሐፍት
-//ሕግ
-
 const booksDatabase = {
+  // --- 3.1. በግዕዝ ---
   "geez_law": [
-    { id: "1", file_id: "BQACAgQAAxkBAAObapfFMdZRfFwbkAda6Q8YVMWvPL0AAmcKAAKIvhFR8Xg54ekJ6HY9BA", title: "መጽሐፈ ሐዊ ብራና" },
-    { id: "2", file_id: "BQACAgQAAxkBAAPGapgeunYm6igi6uUMiiEgpCNnBoYAAoYPAAJiD6FSFfOYzHFnfS49BA", title: "መጽሐፈ ሲኖዶስ" },
+    { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
+    { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
     { id: "3", file_id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)" },
     { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
   ],
-  
-  
-  //ግእዝ ታሪክ ታሪክ
-  
-  
   "geez_hist": [
     { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
@@ -76,11 +68,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
   ],
-  
-  
-  //ግእዝ ገድል ገድል
-  
-  
   "geez_gdsl": [
     { id: "1", file_id: "DUMMY_GEEZ_GDSL_01", title: "ድርሳነ ሚካኤል (ግዕዝ)" },
     { id: "2", file_id: "DUMMY_GEEZ_GDSL_02", title: "ድርሳነ ገብርኤል (ግዕዝ)" },
@@ -88,11 +75,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_GDSL_04", title: "ገድለ ተክለ ሃይማኖት (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_GDSL_05", title: "ገድለ ጊዮርጊስ (ግዕዝ)" }
   ],
-  
-  
-  //ግእዝ ብሉይ ኪዳን
-  
-  
   "geez_ot": [
     { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
     { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
@@ -100,11 +82,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
   ],
-  
-  
-  //ግእዝ ሐዲስ ኪዳን
-  
-  
   "geez_nt": [
     { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
     { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
@@ -112,14 +89,9 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
     { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
   ],
-  
-  
-  //ግእዝ አማርኛ ሕግ
-  
-  
   "ga_law": [
-    { id: "1", file_id: "BQACAgQAAxkBAAPEapgcvkpBkunq0xUMCJPY9Ndj4UAAjQbAAJFEFQtgABGrmyuzMnPQQ", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
-    { id: "2", file_id: "BQACAgQAAxkBAAPIapgf1yRWeDDLEA5Dh8KbaEQBIAAj0NAAKgNLlTg5vOOlI5dPg9BA", title: "መጽሐፈ ዲድስቅልያ" },
+    { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
+    { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
     { id: "3", file_id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ" },
     { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
     { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
@@ -304,7 +276,7 @@ function findBook(catKey, bookId) {
 }
 
 // ==========================================
-// 5. RECEIPT VALIDATION (No OCR needed)
+// 5. RECEIPT VALIDATION
 // ==========================================
 const RECEIPT_KEYWORDS = [
   "receipt", "payment", "deposit", "transfer", "transaction", 
@@ -622,9 +594,11 @@ bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 9. RECEIPT PROCESSING
+// 9. FILE HANDLER - FIXED FOR ALL FILE TYPES
 // ==========================================
+// Function to extract file info from ANY message type
 function extractFileInfo(msg) {
+  // Check for document (PDF, DOC, etc.)
   if (msg.document) {
     return {
       type: 'document',
@@ -635,6 +609,7 @@ function extractFileInfo(msg) {
     };
   }
   
+  // Check for photo
   if (msg.photo && msg.photo.length > 0) {
     const photo = msg.photo[msg.photo.length - 1];
     return {
@@ -646,45 +621,104 @@ function extractFileInfo(msg) {
     };
   }
   
+  // Check for video
+  if (msg.video) {
+    return {
+      type: 'video',
+      fileId: msg.video.file_id,
+      fileName: msg.video.file_name || 'Video.mp4',
+      mimeType: 'video/mp4',
+      fileSize: msg.video.file_size || 0
+    };
+  }
+  
+  // Check for audio
+  if (msg.audio) {
+    return {
+      type: 'audio',
+      fileId: msg.audio.file_id,
+      fileName: msg.audio.file_name || 'Audio.mp3',
+      mimeType: 'audio/mpeg',
+      fileSize: msg.audio.file_size || 0
+    };
+  }
+  
+  // Check for voice
+  if (msg.voice) {
+    return {
+      type: 'voice',
+      fileId: msg.voice.file_id,
+      fileName: 'Voice.ogg',
+      mimeType: 'audio/ogg',
+      fileSize: msg.voice.file_size || 0
+    };
+  }
+  
+  // Check for animation (GIF)
+  if (msg.animation) {
+    return {
+      type: 'animation',
+      fileId: msg.animation.file_id,
+      fileName: 'Animation.gif',
+      mimeType: 'image/gif',
+      fileSize: msg.animation.file_size || 0
+    };
+  }
+  
+  // Check for sticker
+  if (msg.sticker) {
+    return {
+      type: 'sticker',
+      fileId: msg.sticker.file_id,
+      fileName: 'Sticker.webp',
+      mimeType: 'image/webp',
+      fileSize: msg.sticker.file_size || 0
+    };
+  }
+  
   return null;
 }
 
-bot.on(['photo', 'document'], async (ctx) => {
+// Main file handler - listens to ALL file types
+bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
   const userId = ctx.from.id;
   const message = ctx.message;
+  
+  console.log(`📁 File received from user ${userId}`);
+  console.log(`📄 Message type: ${message.document ? 'Document' : message.photo ? 'Photo' : 'Other'}`);
 
-  // ADMIN: Get file ID
+  // Extract file info
+  const fileInfo = extractFileInfo(message);
+  
+  if (!fileInfo) {
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።");
+  }
+
+  // 🔑 ADMIN: ALWAYS show File ID (this is the most important part!)
   if (userId === ADMIN_ID) {
-    const fileInfo = extractFileInfo(message);
-    if (!fileInfo) {
-      return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።");
-    }
-    
     return ctx.reply(
-      `🔑 **የፋይሉ ID**\n\n` +
-      `📄 File: ${fileInfo.fileName}\n` +
-      `🆔 ID: ${fileInfo.fileId}\n` +
-      `📁 Type: ${fileInfo.type}`,
+      `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
+      `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
+      `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
+      `📁 **File Type:** \`${fileInfo.type}\`\n` +
+      `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
+      `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n\n` +
+      `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
       { parse_mode: 'Markdown' }
     );
   }
 
-  // Check if user already paid
+  // For non-admin users: Check if already paid
   if (isPaidUser(userId)) {
     try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል።");
+    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
   }
 
-  const fileInfo = extractFileInfo(message);
-  if (!fileInfo) {
-    try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply("⚠️ እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
-  }
-
-  // Validate receipt
+  // For non-admin users: Validate receipt
   const caption = message.caption || "";
   const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
 
+  // If NOT a valid receipt, delete and warn
   if (!validation.isValid) {
     try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply(
@@ -697,7 +731,7 @@ bot.on(['photo', 'document'], async (ctx) => {
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
 
   try {
-    // Forward to admin
+    // Forward to admin's private account
     const forwardedMsg = await ctx.telegram.forwardMessage(
       ADMIN_ID,
       ctx.chat.id,
@@ -841,9 +875,9 @@ bot.catch((err, ctx) => {
 bot.launch({
   dropPendingUpdates: true
 }).then(() => {
-  console.log("Bot is running...");
+  console.log("✅ Bot is running...");
 }).catch((err) => {
-  console.error("Failed to launch:", err);
+  console.error("❌ Failed to launch:", err);
 });
 
 process.once('SIGINT', () => bot.stop('SIGINT'));
