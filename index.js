@@ -1,311 +1,271 @@
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
 
 // ==========================================
 // 1. CONFIGURATION & CONSTANTS
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
-const ADMIN_ID = 7480368503;
+const ADMIN_IDS = [7480368503];
 const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
 const PORT = process.env.PORT || 3000;
+const RATE_LIMIT = 30;
+const RATE_WINDOW = 60 * 1000;
+const PREVIEW_PAGES = 25;
 
 const bot = new Telegraf(BOT_TOKEN);
 
-process.on('uncaughtException', (err) => {
-  console.error('There was an uncaught error:', err);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-const db = {
-  users: {}, 
-  pendingReceipts: {} 
-};
-
 // ==========================================
-// 2. 24/7 UPTIME KEEP-ALIVE SERVER (EXPRESS)
+// 2. DATABASE SYSTEM
 // ==========================================
-const app = express();
+const DATA_FILE = path.join(__dirname, 'database.json');
 
-app.get('/health', (req, res) => res.status(200).send('OK - Bot is Alive'));
-app.get('/ping', (req, res) => res.status(200).send('Pong'));
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
-
-setInterval(async () => {
-  const serverUrl = process.env.RENDER_EXTERNAL_URL;
-  if (serverUrl) {
-    try {
-      if (globalThis.fetch) {
-        await globalThis.fetch(`${serverUrl}/ping`);
-      }
-    } catch (err) {
-      console.log('Ping failed:', err.message);
+function loadDatabase() {
+  try {
+    if (fs.existsSync(DATA_FILE)) {
+      const data = fs.readFileSync(DATA_FILE, 'utf8');
+      return JSON.parse(data);
     }
+  } catch (error) {
+    console.log('⚠️ Error loading database:', error.message);
   }
-}, 3 * 60 * 1000);
+  return { users: {}, pendingReceipts: {}, feedback: [], bookStats: {}, userActivity: {} };
+}
+
+function saveDatabase() {
+  try {
+    fs.writeFileSync(DATA_FILE, JSON.stringify(db, null, 2), 'utf8');
+    console.log('✅ Database saved');
+  } catch (error) {
+    console.log('❌ Failed to save database:', error.message);
+  }
+}
+
+let db = loadDatabase();
 
 // ==========================================
-// 3. BOOKS DATABASE - FIXED VERSION
+// 3. ADD BOOK SESSIONS (Simplified)
+// ==========================================
+const addBookSessions = {};
+
+// ==========================================
+// 4. BOOKS DATABASE (Your existing books)
 // ==========================================
 const booksDatabase = {
-  // --- 3.1. በግዕዝ ---
-  
-  // ሕግና ሥርዓት 
   "geez_law": [
-    { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)" },
-    { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)" },
-    { id: "3", file_id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)" },
-    { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)" },
-    { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)" }
+    { id: "1", file_id: "DUMMY_GEEZ_LAW_01", title: "ርትዐ ነገሥት (ግዕዝ)", preview: "ይህ የርትዐ ነገሥት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GEEZ_LAW_02", title: "ፍትሐ ነገሥት (ግዕዝ)", preview: "ይህ የፍትሐ ነገሥት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GEEZ_LAW_03", title: "ሥርዓተ ቤተ ክርስቲያን (ግዕዝ)", preview: "ይህ የሥርዓተ ቤተ ክርስቲያን መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GEEZ_LAW_04", title: "መጽሐፈ ዲደስቅልያ (ግዕዝ)", preview: "ይህ የመጽሐፈ ዲደስቅልያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GEEZ_LAW_05", title: "ቃኖናዊ መጻሕፍት (ግዕዝ)", preview: "ይህ የቃኖናዊ መጻሕፍት መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // ግእዝ ታሪክ 
   "geez_hist": [
-    { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)" },
-    { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)" },
-    { id: "3", file_id: "DUMMY_GEEZ_HIST_03", title: "ታሪከ ነገሥት (ግዕዝ)" },
-    { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)" },
-    { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)" }
+    { id: "1", file_id: "DUMMY_GEEZ_HIST_01", title: "ዜና አይሁድ (ግዕዝ)", preview: "ይህ የዜና አይሁድ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GEEZ_HIST_02", title: "መጽሐፈ አክሱም (ግዕዝ)", preview: "ይህ የመጽሐፈ አክሱም መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GEEZ_HIST_03", title: "ታሪከ ነገሥት (ግዕዝ)", preview: "ይህ የታሪከ ነገሥት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GEEZ_HIST_04", title: "ዜና እስክንድር (ግዕዝ)", preview: "ይህ የዜና እስክንድር መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GEEZ_HIST_05", title: "መጽሐፈ ሱባኤ (ግዕዝ)", preview: "ይህ የመጽሐፈ ሱባኤ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // ግእዝ ገድል ድርሳንና ተአምር
   "geez_gdsl": [
-    { id: "1", file_id: "BQACAgQAAxkBAAPZapjWdXjCEeNoOjlRMK0G6pX6Bk0AAj8KAAL6HClRQKqGVFXiKK49BA", title: "ድርሳነ ሚካኤል ብራና" },
-    { id: "2", file_id: "BQACAgQAAxkBAAPfapjXcgpreKHIrBgNQGEua7HCmTkAAjwKAAJ9PIlTM8CfaZvR-2k9BA", title: "ድርሳነ ሰብዓቱ መላእክት " },
-    { id: "3", file_id: "BQACAgQAAxkBAAPhapjZBSJoVscB4rjwsfDWbSwHxoAAoEWAAIMhmhQkIh7mGtt3K09BA", title: "ድርሳነሊ ገብርኤል ብራና" },
-    { id: "4", file_id: "BQACAgQAAxkBAAPjapjZhdpHFvYDvcFIkczDUW9tLIAAlMdAAKS69FTbBiiXs-zys9BA", title: "ድርሳነ ሚካኤል ብራና" },
-    { id:"5", file_id:"BQACAgQAAxkBAAPqapjbmRP3A_QVTyhXBZWLS5TjLGoAAtgNAAJtwMBTHiiUSHg9EAY9BA", title:"ድርሳነ ገብርኤል" },
-    { id:"6", file_id:"BQACAgQAAxkBAAIBDGqY_SozbC0I2Fi7ge5kQMckNxwqAAJ5FQACjWfpUmi2j5U2zN51PQQ", title:"ድርሳን ዘነገሮሙ እግዚእነ ለሐዋርያት" },
-    { id:"7", file_id:"BQACAgQAAxkBAAIBDmqY_dtm16Rhp9jSESjwVhCdAaznAAIsDgACEtFpUV-I4u72ln7CPQQ", title:"ድርሳነ ቅዱስ ሩፋኤል" },
-    { id:"8", file_id:"BQACAgEAAxkBAAIBEGqY_us4NhTLt8P2KJX-VWtR4TraAAJRAgACYHfoRvu7BfQqD_cVPQQ", title:"ድርሳነ ማሕየዊ ምስለ መልክዑ" },
-    { id: "99", file_id: "DUMMY_GEEZ_GDSL_05", title: "We add soon/በቅርቡ እንጨምራለን" }
+    { id: "1", file_id: "BQACAgQAAxkBAAPZapjWdXjCEeNoOjlRMK0G6pX6Bk0AAj8KAAL6HClRQKqGVFXiKK49BA", title: "ድርሳነ ሚካኤል ብራና", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ሚካኤል..." },
+    { id: "2", file_id: "BQACAgQAAxkBAAPfapjXcgpreKHIrBgNQGEua7HCmTkAAjwKAAJ9PIlTM8CfaZvR-2k9BA", title: "ድርሳነ ሰብዓቱ መላእክት", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሰብዓቱ ሊቃነ መላእክት..." },
+    { id: "3", file_id: "BQACAgQAAxkBAAPhapjZBSJoVscB4rjwsfDWbSwHxoAAoEWAAIMhmhQkIh7mGtt3K09BA", title: "ድርሳነ ሊቀ መላእክት ቅዱስ ገብርኤል ብራና", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ገብርኤል..." },
+    { id: "4", file_id: "BQACAgQAAxkBAAPjapjZhdpHFvYDvcFIkczDUW9tLIAAlMdAAKS69FTbBiiXs-zys9BA", title: "የብራና ድርሳነ ሚካኤል በልሳነ ግእዝ", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ሚካኤል በልሳነ ግእዝ..." },
+    { id: "5", file_id: "BQACAgQAAxkBAAPqapjbmRP3A_QVTyhXBZWLS5TjLGoAAtgNAAJtwMBTHiiUSHg9EAY9BA", title: "ድርሳነ ሊቀ መላእክት ቅዱስ ገብርኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ገብርኤል..." },
+    { id: "6", file_id: "BQACAgQAAxkBAAIBDGqY_SozbC0I2Fi7ge5kQMckNxwqAAJ5FQACjWfpUmi2j5U2zN51PQQ", title: "ድርሳን ዘነገሮሙ እግዚእነ ለሐዋርያት", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳን ዘነገሮሙ እግዚእነ ለሐዋርያት..." },
+    { id: "7", file_id: "BQACAgQAAxkBAAIBDmqY_dtm16Rhp9jSESjwVhCdAaznAAIsDgACEtFpUV-I4u72ln7CPQQ", title: "ድርሳነ ቅዱስ ሩፋኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ሩፋኤል..." },
+    { id: "8", file_id: "BQACAgEAAxkBAAIBEGqY_us4NhTLt8P2KJX-VWtR4TraAAJRAgACYHfoRvu7BfQqD_cVPQQ", title: "ድርሳነ ማሕየዊ ምስለ መልክዑ", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ማሕየዊ ምስለ መልክዑ..." },
+    { id: "99", file_id: "DUMMY_GEEZ_GDSL_05", title: "We add soon/በቅርቡ እንጨምራለን", preview: "መጽሐፉ በቅርቡ ይጨመራል..." }
   ],
-  
-  // ግእዝ ብሉይ ኪዳን
   "geez_ot": [
-    { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ " },
-    { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)" },
-    { id: "3", file_id: "DUMMY_GEEZ_OT_03", title: "መጽሐፈ መዝሙር (ግዕዝ)" },
-    { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)" },
-    { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMYapd7UbkpzfZTIng9daYvw8A1q-4AAn0JAAIWA9hQw4UxsdCUEow9BA", title: "፭ቱ መጽሐፍተ ኦሪት ብራና ትርጓሜ", preview: "ይህ የ፭ቱ መጽሐፍተ ኦሪት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GEEZ_OT_02", title: "ኦሪት ዘጸአት (ግዕዝ)", preview: "ይህ የኦሪት ዘጸአት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GEEZ_OT_03", title: "መጽሐፈ መዝሙር (ግዕዝ)", preview: "ይህ የመጽሐፈ መዝሙር መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GEEZ_OT_04", title: "መጽሐፈ ኢሳይያስ (ግዕዝ)", preview: "ይህ የመጽሐፈ ኢሳይያስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GEEZ_OT_05", title: "መጽሐፈ ምሳሌ (ግዕዝ)", preview: "ይህ የመጽሐፈ ምሳሌ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // ግእዝ ሐዲስ ኪዳን
   "geez_nt": [
-    { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና" },
-    { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)" },
-    { id: "3", file_id: "DUMMY_GEEZ_NT_03", title: "ግብረ ሐዋርያት (ግዕዝ)" },
-    { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)" },
-    { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMaapd8piiIyiFFa_-dYnnKkqU2RgcAAgMeAALIlMFT0Y7m-S1fk-I9BA", title: "ሙሉው ሐዲስ ኪዳን የጸዳ(ሚነበብ) ብራና", preview: "ይህ የሙሉው ሐዲስ ኪዳን መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GEEZ_NT_02", title: "ወንጌል ዘዮሐንስ (ግዕዝ)", preview: "ይህ የወንጌል ዘዮሐንስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GEEZ_NT_03", title: "ግብረ ሐዋርያት (ግዕዝ)", preview: "ይህ የግብረ ሐዋርያት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GEEZ_NT_04", title: "መልእክተ ጳውሎስ (ግዕዝ)", preview: "ይህ የመልእክተ ጳውሎስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GEEZ_NT_05", title: "ራእየ ዮሐንስ (ግዕዝ)", preview: "ይህ የራእየ ዮሐንስ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-
-  // --- 3.2. በግዕዝ አማርኛ ---
-  
-  // ሕግ እና ሥርዓት 
   "ga_law": [
-    { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው" },
-    { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ" },
-    { id: "3", file_id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ" },
-    { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን" },
-    { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው" }
+    { id: "1", file_id: "DUMMY_GA_LAW_01", title: "ፍትሐ ነገሥት ንባቡና ትርጓሜው", preview: "ይህ የፍትሐ ነገሥት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GA_LAW_02", title: "ሥርዓተ ቤተ ክርስቲያን ትርጓሜ", preview: "ይህ የሥርዓተ ቤተ ክርስቲያን መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GA_LAW_03", title: "መጽሐፈ ዲደስቅልያ ትርጓሜ", preview: "ይህ የመጽሐፈ ዲደስቅልያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GA_LAW_04", title: "ቃኖና ቤተ ክርስቲያን", preview: "ይህ የቃኖና ቤተ ክርስቲያን መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GA_LAW_05", title: "መጽሐፈ ቅዳሴ ንባቡና ትርጓሜው", preview: "ይህ የመጽሐፈ ቅዳሴ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // ግእዝ አማርኛ ታሪክ
   "ga_hist": [
-    { id: "1", file_id: "DUMMY_GA_HIST_01", title: "ዜና አይሁድ ትርጓሜ" },
-    { id: "2", file_id: "DUMMY_GA_HIST_02", title: "መጽሐፈ አክሱም ትርጓሜ" },
-    { id: "3", file_id: "DUMMY_GA_HIST_03", title: "ታሪከ ነገሥት ዘኢትዮጵያ" },
-    { id: "4", file_id: "DUMMY_GA_HIST_04", title: "ዜና እስክንድር ትርጓሜ" },
-    { id: "5", file_id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_HIST_01", title: "ዜና አይሁድ ትርጓሜ", preview: "ይህ የዜና አይሁድ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GA_HIST_02", title: "መጽሐፈ አክሱም ትርጓሜ", preview: "ይህ የመጽሐፈ አክሱም መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GA_HIST_03", title: "ታሪከ ነገሥት ዘኢትዮጵያ", preview: "ይህ የታሪከ ነገሥት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GA_HIST_04", title: "ዜና እስክንድር ትርጓሜ", preview: "ይህ የዜና እስክንድር መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GA_HIST_05", title: "መጽሐፈ ሱባኤ ትርጓሜ", preview: "ይህ የመጽሐፈ ሱባኤ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // ግእዝ አማርኛ ገድል
   "ga_gdsl": [
-    { id: "1", file_id: "BQACAgQAAxkBAAPWaphINHM2lRkznNEzSJovZdpcrzwAApMdAALp9MhQlhG908oUFio9BA", title: "ድርሳነ ሚካኤል" },
-    { id: "2", file_id: "BQACAgQAAxkBAAP0apjiCWvVv63N4thgtKqSSSTG9mAAAtUhAAKuXclQxitdVaULcDM9BA", title: "ድርሳነ ራጉኤል" },
-    { id: "3", file_id: "BQACAgQAAxkBAAPoapjbcyXFg9F4CFUuWjj1-LTQ1OEAAv8WAAK4B1FQGnav1e-AgJc9BA", title: "ድርሳነ ሰንበት" },
-    { id: "4", file_id: "BQACAgQAAxkBAAP-apjsYNMJPvsbCSIwvSEftWz1Or8AAtUaAAIiroFRnGC9dtNUZi89BA", title: "ድርሳነ ዑራኤል" },
-    { id: "5", file_id: "BQACAgQAAxkBAAIBCmqY_KO_j0lGIMgcf-0leltOH1hNAAJ1FAAC45BxUwH6hyap6vD1PQQ", title: "ድርሳነ_መድኃኔ_ዓለም_ገድለ_አቡነ_መባዓ_ጽዮን" },
-    { id:"6", file_id:"BQACAgQAAxkBAAIBFGqY_9c_xTeW1Ox68xksvGHi6qRXAAK1GQACBzpJU7ddXZ-PfJNrPQQ", title:"ድርሳነ ዜና ሥላሴ" },
-    { id:"99", file_id:"ghhguuug", title:"we add soon/በቅርቡ እንጨምራለን" }
+    { id: "1", file_id: "BQACAgQAAxkBAAPWaphINHM2lRkznNEzSJovZdpcrzwAApMdAALp9MhQlhG908oUFio9BA", title: "ድርሳነ ሚካኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ሚካኤል..." },
+    { id: "2", file_id: "BQACAgQAAxkBAAP0apjiCWvVv63N4thgtKqSSSTG9mAAAtUhAAKuXclQxitdVaULcDM9BA", title: "ድርሳነ ራጉኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ራጉኤል..." },
+    { id: "3", file_id: "BQACAgQAAxkBAAPoapjbcyXFg9F4CFUuWjj1-LTQ1OEAAv8WAAK4B1FQGnav1e-AgJc9BA", title: "ድርሳነ ሰንበት", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ሰንበት..." },
+    { id: "4", file_id: "BQACAgQAAxkBAAP-apjsYNMJPvsbCSIwvSEftWz1Or8AAtUaAAIiroFRnGC9dtNUZi89BA", title: "ድርሳነ ዑራኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ዑራኤል..." },
+    { id: "5", file_id: "BQACAgQAAxkBAAIBCmqY_KO_j0lGIMgcf-0leltOH1hNAAJ1FAAC45BxUwH6hyap6vD1PQQ", title: "ድርሳነ መድኃኔ ዓለም ገድለ አቡነ መባዓ ጽዮን", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ መድኃኔ ዓለም..." },
+    { id: "6", file_id: "BQACAgQAAxkBAAIBFGqY_9c_xTeW1Ox68xksvGHi6qRXAAK1GQACBzpJU7ddXZ-PfJNrPQQ", title: "ዜና ሥላሴ ግእዝ - አምሐርኛ", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ዜና ሥላሴ..." },
+    { id: "99", file_id: "ghhguuug", title: "we add soon/በቅርቡ እንጨምራለን", preview: "መጽሐፉ በቅርቡ ይጨመራል..." }
   ],
-  
   "ga_ot": [
-    { id: "1", file_id: "DUMMY_GA_OT_01", title: "ኦሪት ዘፍጥረት ንባቡና ትርጓሜው" },
-    { id: "2", file_id: "DUMMY_GA_OT_02", title: "ኦሪት ዘጸአት ንባቡና ትርጓሜው" },
-    { id: "3", file_id: "DUMMY_GA_OT_03", title: "መዝሙረ ዳዊት ንባቡና ትርጓሜው" },
-    { id: "4", file_id: "DUMMY_GA_OT_04", title: "መጽሐፈ ኢሳይያስ ትርጓሜ" },
-    { id: "5", file_id: "DUMMY_GA_OT_05", title: "መጽሐፈ ምሳሌ ትርጓሜ" }
+    { id: "1", file_id: "DUMMY_GA_OT_01", title: "ኦሪት ዘፍጥረት ንባቡና ትርጓሜው", preview: "ይህ የኦሪት ዘፍጥረት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_GA_OT_02", title: "ኦሪት ዘጸአት ንባቡና ትርጓሜው", preview: "ይህ የኦሪት ዘጸአት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GA_OT_03", title: "መዝሙረ ዳዊት ንባቡና ትርጓሜው", preview: "ይህ የመዝሙረ ዳዊት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GA_OT_04", title: "መጽሐፈ ኢሳይያስ ትርጓሜ", preview: "ይህ የመጽሐፈ ኢሳይያስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GA_OT_05", title: "መጽሐፈ ምሳሌ ትርጓሜ", preview: "ይህ የመጽሐፈ ምሳሌ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "ga_nt": [
-    { id: "1", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማቴዎስ ትርጓሜ" },
-    { id: "2", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማርቆስ ትርጓሜ" },
-    { id: "3", file_id: "BQACAgQAAxkBAANyapersQ98wbYKC8-79MnvYLqhKTAAAmQeAAK225lQS9MwBsORgaI9BA", title: "ወንጌል ዘሉቃድ ትርጓሜ" },
-    { id: "4", file_id: "BQACAgQAAxkBAANzapersT-LRq5gCg7KU_3K9e6EKmoAAhkbAAJt8rhSH2tfVI7_W4M9BA", title: "ወንጌል ዘዮሐንስ ትርጓሜ" },
-    { id: "5", file_id: "BQACAgQAAxkBAAOBape555kx5chgTM0HuqJivR3bDuQAAg0YAALB61hQCIYaj31GHiw9BA", title: "የሐዋርያት ሥራ ትርጓሜ" },
-    { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ" },
-    { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ" }
+    { id: "1", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማቴዎስ ትርጓሜ", preview: "ይህ የወንጌል ዘማቴዎስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "BQACAgQAAxkBAAN0apersTfkSpLpXujQvxu4zFJ8MioAAmceAAK225lQA3vS59CEP0U9BA", title: "ወንጌል ዘማርቆስ ትርጓሜ", preview: "ይህ የወንጌል ዘማርቆስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "BQACAgQAAxkBAANyapersQ98wbYKC8-79MnvYLqhKTAAAmQeAAK225lQS9MwBsORgaI9BA", title: "ወንጌል ዘሉቃድ ትርጓሜ", preview: "ይህ የወንጌል ዘሉቃድ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "BQACAgQAAxkBAANzapersT-LRq5gCg7KU_3K9e6EKmoAAhkbAAJt8rhSH2tfVI7_W4M9BA", title: "ወንጌል ዘዮሐንስ ትርጓሜ", preview: "ይህ የወንጌል ዘዮሐንስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "BQACAgQAAxkBAAOBape555kx5chgTM0HuqJivR3bDuQAAg0YAALB61hQCIYaj31GHiw9BA", title: "የሐዋርያት ሥራ ትርጓሜ", preview: "ይህ የየሐዋርያት ሥራ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "6", file_id: "BQACAgQAAxkBAAODape9bjU5mP1luEgC_j0DZ7whg_kAAowYAAI1KphTzq16eyFGTF89BA", title: "ሮሜ አንድምታ ትርጓሜ", preview: "ይህ የሮሜ አንድምታ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "7", file_id: "BQACAgQAAxkBAAOFape-Oj3cIsSv4xdiAoptKykB7gAD7yAAAlx_WVMPRIXfrWJIhT0E", title: "ወደ ሮሜ ንባቡና ትርጓሜ", preview: "ይህ የወደ ሮሜ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // --- 3.3. የግዕዝ ቋንቋ መማሪያ ---
   "geez_edu": [
     { 
       id: "1", 
       file_id: "BQACAgQAAxkBAAMQapdxmNt2UHnzrQim-4cLtqskVeoAAqofAAI12zhQxSRCSEyXyN89BA", 
-      title: "መጽሐፈ፡ሰዋስው፡ወግስ፡ወመዝገበ፡ቃላት፡ሐዲስ" 
+      title: "መጽሐፈ ሰዋስው ወግስ ወመዝገበ ቃላት ሐዲስ",
+      preview: "ይህ የመጽሐፈ ሰዋስው መጽሐፍ የመጀመሪያ ገጽ ነው..." 
     },
-    { id: "2", file_id: "DUMMY_GEEZ_EDU_02", title: "የሰዋስው ወሰወሰ ግዕዝ" },
-    { id: "3", file_id: "DUMMY_GEEZ_EDU_03", title: "መዝገበ ቃላት ግዕዝ-አማርኛ" },
-    { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ" },
-    { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ" }
+    { id: "2", file_id: "DUMMY_GEEZ_EDU_02", title: "የሰዋስው ወሰወሰ ግዕዝ", preview: "ይህ የየሰዋስው ወሰወሰ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_GEEZ_EDU_03", title: "መዝገበ ቃላት ግዕዝ-አማርኛ", preview: "ይህ የመዝገበ ቃላት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_GEEZ_EDU_04", title: "የግዕዝ ግሥ መጽሐፍ", preview: "ይህ የየግዕዝ ግሥ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_GEEZ_EDU_05", title: "መጽሐፈ ሰዋስው ዘግዕዝ", preview: "ይህ የመጽሐፈ ሰዋስው ዘግዕዝ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-
-  // --- 3.4. በአማርኛ ---
-  
-  // አማርኛ ሕግና ሥርዓት 
   "amh_law": [
-    { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት" },
-    { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ" },
-    { id: "3", file_id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ሕይወትና ሥርዓት" },
-    { id: "4", file_id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ" },
-    { id: "5", file_id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት" }
+    { id: "1", file_id: "DUMMY_AMH_LAW_01", title: "የቤተ ክርስቲያን ሕግና ሥርዓት", preview: "ይህ የየቤተ ክርስቲያን ሕግና ሥርዓት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_LAW_02", title: "የሥርዓተ ቅዳሴ ማብራሪያ", preview: "ይህ የየሥርዓተ ቅዳሴ ማብራሪያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_LAW_03", title: "የክርስቲያን ሕይወትና ሥርዓት", preview: "ይህ የየክርስቲያን ሕይወትና ሥርዓት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_LAW_04", title: "የፍትሐ ነገሥት ማብራሪያ", preview: "ይህ የየፍትሐ ነገሥት ማብራሪያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_LAW_05", title: "የቅዱሳት ምስጢራት ሥርዓት", preview: "ይህ የየቅዱሳት ምስጢራት ሥርዓት መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // አማርኛ ታሪክ
   "amh_hist": [
-    { id: "1", file_id: "DUMMY_AMH_HIST_01", title: "የኢትዮጵያ ቤተ ክርስቲያን ታሪክ" },
-    { id: "2", file_id: "DUMMY_AMH_HIST_02", title: "የዓለም ቤተ ክርስቲያን ታሪክ" },
-    { id: "3", file_id: "DUMMY_AMH_HIST_03", title: "የታሪከ ነገሥት ማጠቃለያ" },
-    { id: "4", file_id: "DUMMY_AMH_HIST_04", title: "የቅዱሳን አበው ታሪክ" },
-    { id: "5", file_id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ" }
+    { id: "1", file_id: "DUMMY_AMH_HIST_01", title: "የኢትዮጵያ ቤተ ክርስቲያን ታሪክ", preview: "ይህ የየኢትዮጵያ ቤተ ክርስቲያን ታሪክ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_HIST_02", title: "የዓለም ቤተ ክርስቲያን ታሪክ", preview: "ይህ የየዓለም ቤተ ክርስቲያን ታሪክ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_HIST_03", title: "የታሪከ ነገሥት ማጠቃለያ", preview: "ይህ የየታሪከ ነገሥት ማጠቃለያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_HIST_04", title: "የቅዱሳን አበው ታሪክ", preview: "ይህ የየቅዱሳን አበው ታሪክ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_HIST_05", title: "የዜና መዋዕል ታሪክ", preview: "ይህ የየዜና መዋዕል ታሪክ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
-  // አማርኛ ድርሳን ገድል እና ተአምር
   "amh_gdsl": [
-    { id: "1", file_id: "BQACAgQAAxkBAAIBEmqY_2wbgWxZz0w-DWy5K9vxVTh9AALXDgACKQABkFG92rcZN_zt1j0E", title: "የማኅበረ መላእክት ድርሳን" },
-    { id: "2", file_id: "BQACAgQAAxkBAAPmapjaUtdihEG1XhcgCcLy7b5BI0AAtEhAAKuXclQ9tP3te9qdCs9BA", title: "ድርሳነ ፋኑኤል" },
-    { id: "3", file_id: "BQACAgQAAxkBAAPaapjWdaw1Ga6g7FxtNE60cof2XMIAAncaAAKoDpFTQGuC3QGlKiU9BA", title: "ድርሳነ ገብርኤል" },
-    { id: "4", file_id: "BQACAgQAAxkBAAPdapjXFTvN6JURihRCBgMWvp-FMiwAAlMOAAJ-QsFTMzSaI8GVtj49BA", title: "ድርሳነ ማሕየዊ" },
-    { id: "99", file_id: "DUMMY_AMH_GDSL_05", title: "We add soon/በቅርቡ እንጨምራለን" }
+    { id: "1", file_id: "BQACAgQAAxkBAAIBEmqY_2wbgWxZz0w-DWy5K9vxVTh9AALXDgACKQABkFG92rcZN_zt1j0E", title: "የማኅበረ መላእክት ድርሳን", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። የማኅበረ መላእክት ድርሳን..." },
+    { id: "2", file_id: "BQACAgQAAxkBAAPmapjaUtdihEG1XhcgCcLy7b5BI0AAtEhAAKuXclQ9tP3te9qdCs9BA", title: "ድርሳነ ፋኑኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ፋኑኤል..." },
+    { id: "3", file_id: "BQACAgQAAxkBAAPaapjWdaw1Ga6g7FxtNE60cof2XMIAAncaAAKoDpFTQGuC3QGlKiU9BA", title: "ድርሳነ ገብርኤል", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ሊቀ መላእክት ቅዱስ ገብርኤል..." },
+    { id: "4", file_id: "BQACAgQAAxkBAAPdapjXFTvN6JURihRCBgMWvp-FMiwAAlMOAAJ-QsFTMzSaI8GVtj49BA", title: "ድርሳነ ማሕየዊ", preview: "በስመ አብ ወወልድ ወመንፈስ ቅዱስ አሐዱ አምላክ አሜን። ድርሳነ ቅዱስ ማሕየዊ..." },
+    { id: "99", file_id: "DUMMY_AMH_GDSL_05", title: "We add soon/በቅርቡ እንጨምራለን", preview: "መጽሐፉ በቅርቡ ይጨመራል..." }
   ],
-  
   "amh_eth": [
-    { id: "1", file_id: "DUMMY_AMH_ETH_01", title: "ክርስቲያናዊ ሥነ ምግባር" },
-    { id: "2", file_id: "DUMMY_AMH_ETH_02", title: "የሕይወት ጎዳና" },
-    { id: "3", file_id: "DUMMY_AMH_ETH_03", title: "የበጎ አድራጎት ትምህርት" },
-    { id: "4", file_id: "DUMMY_AMH_ETH_04", title: "የትህትናና የፍቅር ሕይወት" },
-    { id: "5", file_id: "DUMMY_AMH_ETH_05", title: "የቤተሰብ ክርስቲያናዊ መመሪያ" }
+    { id: "1", file_id: "DUMMY_AMH_ETH_01", title: "ክርስቲያናዊ ሥነ ምግባር", preview: "ይህ የክርስቲያናዊ ሥነ ምግባር መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_ETH_02", title: "የሕይወት ጎዳና", preview: "ይህ የየሕይወት ጎዳና መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_ETH_03", title: "የበጎ አድራጎት ትምህርት", preview: "ይህ የየበጎ አድራጎት ትምህርት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_ETH_04", title: "የትህትናና የፍቅር ሕይወት", preview: "ይህ የየትህትናና የፍቅር ሕይወት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_ETH_05", title: "የቤተሰብ ክርስቲያናዊ መመሪያ", preview: "ይህ የየቤተሰብ ክርስቲያናዊ መመሪያ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_ot": [
-    { id: "1", file_id: "DUMMY_AMH_OT_01", title: "ኦሪት ዘፍጥረት በአማርኛ" },
-    { id: "2", file_id: "DUMMY_AMH_OT_02", title: "ኦሪት ዘጸአት በአማርኛ" },
-    { id: "3", file_id: "DUMMY_AMH_OT_03", title: "መዝሙረ ዳዊት በአማርኛ" },
-    { id: "4", file_id: "DUMMY_AMH_OT_04", title: "መጽሐፈ ኢሳይያስ በአማርኛ" },
-    { id: "5", file_id: "DUMMY_AMH_OT_05", title: "መጽሐፈ ምሳሌ በአማርኛ" }
+    { id: "1", file_id: "DUMMY_AMH_OT_01", title: "ኦሪት ዘፍጥረት በአማርኛ", preview: "ይህ የኦሪት ዘፍጥረት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_OT_02", title: "ኦሪት ዘጸአት በአማርኛ", preview: "ይህ የኦሪት ዘጸአት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_OT_03", title: "መዝሙረ ዳዊት በአማርኛ", preview: "ይህ የመዝሙረ ዳዊት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_OT_04", title: "መጽሐፈ ኢሳይያስ በአማርኛ", preview: "ይህ የመጽሐፈ ኢሳይያስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_OT_05", title: "መጽሐፈ ምሳሌ በአማርኛ", preview: "ይህ የመጽሐፈ ምሳሌ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_nt": [
-    { id: "1", file_id: "DUMMY_AMH_NT_01", title: "የቅዱስ ማቴዎስ ወንጌል" },
-    { id: "2", file_id: "DUMMY_AMH_NT_02", title: "የቅዱስ ዮሐንስ ወንጌል" },
-    { id: "3", file_id: "DUMMY_AMH_NT_03", title: "የሐዋርያት ሥራ" },
-    { id: "4", file_id: "DUMMY_AMH_NT_04", title: "የቅዱስ ጳውሎስ መልእክት" },
-    { id: "5", file_id: "DUMMY_AMH_NT_05", title: "የቅዱስ ዮሐንስ ራእይ" }
+    { id: "1", file_id: "DUMMY_AMH_NT_01", title: "የቅዱስ ማቴዎስ ወንጌል", preview: "ይህ የየቅዱስ ማቴዎስ ወንጌል መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_NT_02", title: "የቅዱስ ዮሐንስ ወንጌል", preview: "ይህ የየቅዱስ ዮሐንስ ወንጌል መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_NT_03", title: "የሐዋርያት ሥራ", preview: "ይህ የየሐዋርያት ሥራ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_NT_04", title: "የቅዱስ ጳውሎስ መልእክት", preview: "ይህ የየቅዱስ ጳውሎስ መልእክት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_NT_05", title: "የቅዱስ ዮሐንስ ራእይ", preview: "ይህ የየቅዱስ ዮሐንስ ራእይ መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_std": [
-    { id: "1", file_id: "DUMMY_AMH_STD_01", title: "የመጽሐፍ ቅዱስ ጥናት መመሪያ" },
-    { id: "2", file_id: "DUMMY_AMH_STD_02", title: "የመጽሐፍ ቅዱስ መዝገበ ቃላት" },
-    { id: "3", file_id: "DUMMY_AMH_STD_03", title: "የብሉይ ኪዳን ጥናት" },
-    { id: "4", file_id: "DUMMY_AMH_STD_04", title: "የአዲስ ኪዳን ጥናት" },
-    { id: "5", file_id: "DUMMY_AMH_STD_05", title: "የትንቢት መጻሕፍት ጥናት" }
+    { id: "1", file_id: "DUMMY_AMH_STD_01", title: "የመጽሐፍ ቅዱስ ጥናት መመሪያ", preview: "ይህ የየመጽሐፍ ቅዱስ ጥናት መመሪያ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_STD_02", title: "የመጽሐፍ ቅዱስ መዝገበ ቃላት", preview: "ይህ የየመጽሐፍ ቅዱስ መዝገበ ቃላት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_STD_03", title: "የብሉይ ኪዳን ጥናት", preview: "ይህ የየብሉይ ኪዳን ጥናት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_STD_04", title: "የአዲስ ኪዳን ጥናት", preview: "ይህ የየአዲስ ኪዳን ጥናት መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_STD_05", title: "የትንቢት መጻሕፍት ጥናት", preview: "ይህ የየትንቢት መጻሕፍት ጥናት መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_chr": [
-    { id: "1", file_id: "BQACAgQAAxkBAAMuapeKeQL2zvehmKt3MO2gUxGVZvQAAmEZAAL-iRFSUPgwjQABaU7tPQQ", title: "ነገረ ክርስቶስ መ/ር በትረ ማርያም" },
-    { id: "2", file_id: "BQACAgIAAxkBAAMtapeKNEeBt2v9bN9-QVFpLZtnPbAAArJbAAJlqAFJmPw18dc07Rw9BA", title: "በነገረ ክርስቶስ ላይ የተነሱ ጥያቄዎች እና መልሶቻቸው Dr ሮዳስ ታደሰ" },
-    { id: "3", file_id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3" },
-    { id: "4", file_id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4" },
-    { id: "5", file_id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMuapeKeQL2zvehmKt3MO2gUxGVZvQAAmEZAAL-iRFSUPgwjQABaU7tPQQ", title: "ነገረ ክርስቶስ መ/ር በትረ ማርያም", preview: "ይህ የነገረ ክርስቶስ መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "BQACAgIAAxkBAAMtapeKNEeBt2v9bN9-QVFpLZtnPbAAArJbAAJlqAFJmPw18dc07Rw9BA", title: "በነገረ ክርስቶስ ላይ የተነሱ ጥያቄዎች እና መልሶቻቸው Dr ሮዳስ ታደሰ", preview: "ይህ የበነገረ ክርስቶስ ላይ የተነሱ ጥያቄዎች መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_CHR_03", title: "ነገረ ክርስቶስ ትምህርት 3", preview: "ይህ የነገረ ክርስቶስ ትምህርት 3 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_CHR_04", title: "ነገረ ክርስቶስ ትምህርት 4", preview: "ይህ የነገረ ክርስቶስ ትምህርት 4 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_CHR_05", title: "ነገረ ክርስቶስ ትምህርት 5", preview: "ይህ የነገረ ክርስቶስ ትምህርት 5 መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_mry": [
-    { id: "1", file_id: "BQACAgQAAxkBAAMcapd9mbw5iHKJf-7Y1JPbLh2sGTMAAvEKAAIn8NhRpbFmUy6n4sw9BA", title: "ነገረ ማርያም በሐዲስ ኪዳን Dr ሮዳስ ታደሰ" },
-    { id: "2", file_id: "DUMMY_AMH_MRY_02", title: "ነገረ ማርያም ትምህርት 2" },
-    { id: "3", file_id: "DUMMY_AMH_MRY_03", title: "ነገረ ማርያም ትምህርት 3" },
-    { id: "4", file_id: "DUMMY_AMH_MRY_04", title: "ነገረ ማርያም ትምህርት 4" },
-    { id: "5", file_id: "DUMMY_AMH_MRY_05", title: "ነገረ ማርያም ትምህርት 5" }
+    { id: "1", file_id: "BQACAgQAAxkBAAMcapd9mbw5iHKJf-7Y1JPbLh2sGTMAAvEKAAIn8NhRpbFmUy6n4sw9BA", title: "ነገረ ማርያም በሐዲስ ኪዳን Dr ሮዳስ ታደሰ", preview: "ይህ የነገረ ማርያም መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_MRY_02", title: "ነገረ ማርያም ትምህርት 2", preview: "ይህ የነገረ ማርያም ትምህርት 2 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_MRY_03", title: "ነገረ ማርያም ትምህርት 3", preview: "ይህ የነገረ ማርያም ትምህርት 3 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_MRY_04", title: "ነገረ ማርያም ትምህርት 4", preview: "ይህ የነገረ ማርያም ትምህርት 4 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_MRY_05", title: "ነገረ ማርያም ትምህርት 5", preview: "ይህ የነገረ ማርያም ትምህርት 5 መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_snt": [
-    { id: "1", file_id: "DUMMY_AMH_SNT_01", title: "ነገረ ቅዱሳን ትምህርት 1" },
-    { id: "2", file_id: "DUMMY_AMH_SNT_02", title: "ነገረ ቅዱሳን ትምህርት 2" },
-    { id: "3", file_id: "DUMMY_AMH_SNT_03", title: "ነገረ ቅዱሳን ትምህርት 3" },
-    { id: "4", file_id: "DUMMY_AMH_SNT_04", title: "ነገረ ቅዱሳን ትምህርት 4" },
-    { id: "5", file_id: "DUMMY_AMH_SNT_05", title: "ነገረ ቅዱሳን ትምህርት 5" }
+    { id: "1", file_id: "DUMMY_AMH_SNT_01", title: "ነገረ ቅዱሳን ትምህርት 1", preview: "ይህ የነገረ ቅዱሳን ትምህርት 1 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_SNT_02", title: "ነገረ ቅዱሳን ትምህርት 2", preview: "ይህ የነገረ ቅዱሳን ትምህርት 2 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_SNT_03", title: "ነገረ ቅዱሳን ትምህርት 3", preview: "ይህ የነገረ ቅዱሳን ትምህርት 3 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_SNT_04", title: "ነገረ ቅዱሳን ትምህርት 4", preview: "ይህ የነገረ ቅዱሳን ትምህርት 4 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_SNT_05", title: "ነገረ ቅዱሳን ትምህርት 5", preview: "ይህ የነገረ ቅዱሳን ትምህርት 5 መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-  
   "amh_thl": [
-    { id: "1", file_id: "DUMMY_AMH_THL_01", title: "የሃይማኖት መሠረት 1" },
-    { id: "2", file_id: "DUMMY_AMH_THL_02", title: "የሃይማኖት መሠረት 2" },
-    { id: "3", file_id: "DUMMY_AMH_THL_03", title: "የሃይማኖት መሠረት 3" },
-    { id: "4", file_id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4" },
-    { id: "5", file_id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5" }
+    { id: "1", file_id: "DUMMY_AMH_THL_01", title: "የሃይማኖት መሠረት 1", preview: "ይህ የየሃይማኖት መሠረት 1 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "2", file_id: "DUMMY_AMH_THL_02", title: "የሃይማኖት መሠረት 2", preview: "ይህ የየሃይማኖት መሠረት 2 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "3", file_id: "DUMMY_AMH_THL_03", title: "የሃይማኖት መሠረት 3", preview: "ይህ የየሃይማኖት መሠረት 3 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "4", file_id: "DUMMY_AMH_THL_04", title: "የሃይማኖት መሠረት 4", preview: "ይህ የየሃይማኖት መሠረት 4 መጽሐፍ የመጀመሪያ ገጽ ነው..." },
+    { id: "5", file_id: "DUMMY_AMH_THL_05", title: "የሃይማኖት መሠረት 5", preview: "ይህ የየሃይማኖት መሠረት 5 መጽሐፍ የመጀመሪያ ገጽ ነው..." }
   ],
-
-  // --- 3.5. In English ---
   "eng_law": [
-    { id: "1", file_id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)" },
-    { id: "2", file_id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church" },
-    { id: "3", file_id: "DUMMY_ENG_LAW_03", title: "The Didascalia (English)" },
-    { id: "4", file_id: "DUMMY_ENG_LAW_04", title: "Liturgy and Order" },
-    { id: "5", file_id: "DUMMY_ENG_LAW_05", title: "Ecclesiastical Canons" }
+    { id: "1", file_id: "DUMMY_ENG_LAW_01", title: "Fetha Nagast (English)", preview: "This is the first page of Fetha Nagast..." },
+    { id: "2", file_id: "DUMMY_ENG_LAW_02", title: "Canon Law of Orthodox Church", preview: "This is the first page of Canon Law..." },
+    { id: "3", file_id: "DUMMY_ENG_LAW_03", title: "The Didascalia (English)", preview: "This is the first page of The Didascalia..." },
+    { id: "4", file_id: "DUMMY_ENG_LAW_04", title: "Liturgy and Order", preview: "This is the first page of Liturgy and Order..." },
+    { id: "5", file_id: "DUMMY_ENG_LAW_05", title: "Ecclesiastical Canons", preview: "This is the first page of Ecclesiastical Canons..." }
   ],
-  
   "eng_hist": [
-    { id: "1", file_id: "DUMMY_ENG_HIST_01", title: "History of Ethiopian Church" },
-    { id: "2", file_id: "DUMMY_ENG_HIST_02", title: "Kebra Nagast (English)" },
-    { id: "3", file_id: "DUMMY_ENG_HIST_03", title: "Lives of Ethiopian Saints" },
-    { id: "4", file_id: "DUMMY_ENG_HIST_04", title: "Chronicles of Kings" },
-    { id: "5", file_id: "DUMMY_ENG_HIST_05", title: "Ancient Aksum History" }
+    { id: "1", file_id: "DUMMY_ENG_HIST_01", title: "History of Ethiopian Church", preview: "This is the first page of History of Ethiopian Church..." },
+    { id: "2", file_id: "DUMMY_ENG_HIST_02", title: "Kebra Nagast (English)", preview: "This is the first page of Kebra Nagast..." },
+    { id: "3", file_id: "DUMMY_ENG_HIST_03", title: "Lives of Ethiopian Saints", preview: "This is the first page of Lives of Ethiopian Saints..." },
+    { id: "4", file_id: "DUMMY_ENG_HIST_04", title: "Chronicles of Kings", preview: "This is the first page of Chronicles of Kings..." },
+    { id: "5", file_id: "DUMMY_ENG_HIST_05", title: "Ancient Aksum History", preview: "This is the first page of Ancient Aksum History..." }
   ],
-  
   "eng_eth": [
-    { id: "1", file_id: "DUMMY_ENG_ETH_01", title: "Orthodox Christian Ethics" },
-    { id: "2", file_id: "DUMMY_ENG_ETH_02", title: "Path to Holiness" },
-    { id: "3", file_id: "DUMMY_ENG_ETH_03", title: "Spiritual Discipline" },
-    { id: "4", file_id: "DUMMY_ENG_ETH_04", title: "Christian Virtues" },
-    { id: "5", file_id: "DUMMY_ENG_ETH_05", title: "Family and Faith" }
+    { id: "1", file_id: "DUMMY_ENG_ETH_01", title: "Orthodox Christian Ethics", preview: "This is the first page of Orthodox Christian Ethics..." },
+    { id: "2", file_id: "DUMMY_ENG_ETH_02", title: "Path to Holiness", preview: "This is the first page of Path to Holiness..." },
+    { id: "3", file_id: "DUMMY_ENG_ETH_03", title: "Spiritual Discipline", preview: "This is the first page of Spiritual Discipline..." },
+    { id: "4", file_id: "DUMMY_ENG_ETH_04", title: "Christian Virtues", preview: "This is the first page of Christian Virtues..." },
+    { id: "5", file_id: "DUMMY_ENG_ETH_05", title: "Family and Faith", preview: "This is the first page of Family and Faith..." }
   ],
-  
   "eng_ot": [
-    { id: "1", file_id: "DUMMY_ENG_OT_01", title: "Book of Genesis (English)" },
-    { id: "2", file_id: "DUMMY_ENG_OT_02", title: "Book of Exodus (English)" },
-    { id: "3", file_id: "DUMMY_ENG_OT_03", title: "Psalms of David" },
-    { id: "4", file_id: "DUMMY_ENG_OT_04", title: "Book of Enoch" },
-    { id: "5", file_id: "DUMMY_ENG_OT_05", title: "Book of Jubilees" }
+    { id: "1", file_id: "DUMMY_ENG_OT_01", title: "Book of Genesis (English)", preview: "This is the first page of Book of Genesis..." },
+    { id: "2", file_id: "DUMMY_ENG_OT_02", title: "Book of Exodus (English)", preview: "This is the first page of Book of Exodus..." },
+    { id: "3", file_id: "DUMMY_ENG_OT_03", title: "Psalms of David", preview: "This is the first page of Psalms of David..." },
+    { id: "4", file_id: "DUMMY_ENG_OT_04", title: "Book of Enoch", preview: "This is the first page of Book of Enoch..." },
+    { id: "5", file_id: "DUMMY_ENG_OT_05", title: "Book of Jubilees", preview: "This is the first page of Book of Jubilees..." }
   ],
-  
   "eng_thl": [
-    { id: "1", file_id: "DUMMY_ENG_THL_01", title: "Orthodox Theology Basics" },
-    { id: "2", file_id: "DUMMY_ENG_THL_02", title: "Mariology in Tradition" },
-    { id: "3", file_id: "DUMMY_ENG_THL_03", title: "Christology Principles" },
-    { id: "4", file_id: "DUMMY_ENG_THL_04", title: "The Holy Sacraments" },
-    { id: "5", file_id: "DUMMY_ENG_THL_05", title: "Dogmatic Theology" }
+    { id: "1", file_id: "DUMMY_ENG_THL_01", title: "Orthodox Theology Basics", preview: "This is the first page of Orthodox Theology Basics..." },
+    { id: "2", file_id: "DUMMY_ENG_THL_02", title: "Mariology in Tradition", preview: "This is the first page of Mariology in Tradition..." },
+    { id: "3", file_id: "DUMMY_ENG_THL_03", title: "Christology Principles", preview: "This is the first page of Christology Principles..." },
+    { id: "4", file_id: "DUMMY_ENG_THL_04", title: "The Holy Sacraments", preview: "This is the first page of The Holy Sacraments..." },
+    { id: "5", file_id: "DUMMY_ENG_THL_05", title: "Dogmatic Theology", preview: "This is the first page of Dogmatic Theology..." }
   ]
 };
 
 // ==========================================
-// 4. HELPER FUNCTIONS
+// 5. HELPER FUNCTIONS
 // ==========================================
+function isAdmin(userId) {
+  return ADMIN_IDS.includes(userId);
+}
+
 function isPaidUser(userId) {
-  if (userId === ADMIN_ID) return true;
+  if (isAdmin(userId)) return true;
   return db.users[userId] && db.users[userId].is_paid === true;
 }
 
@@ -315,9 +275,23 @@ function registerUser(from) {
       username: from.username ? `@${from.username}` : "No Username",
       is_paid: false,
       registration_date: new Date().toISOString(),
-      last_page_read: 0
+      preferred_language: null,
+      total_downloads: 0,
+      books_downloaded: []
     };
+    saveDatabase();
+    return true;
   }
+  return false;
+}
+
+function markUserPaid(userId) {
+  if (!db.users[userId]) {
+    db.users[userId] = { is_paid: true };
+  } else {
+    db.users[userId].is_paid = true;
+  }
+  saveDatabase();
 }
 
 function findBook(catKey, bookId) {
@@ -325,8 +299,37 @@ function findBook(catKey, bookId) {
   return booksDatabase[catKey].find(b => b.id === bookId);
 }
 
+function trackDownload(userId, catKey, bookId) {
+  if (!db.users[userId]) return;
+  db.users[userId].total_downloads = (db.users[userId].total_downloads || 0) + 1;
+  const bookKey = `${catKey}_${bookId}`;
+  if (!db.users[userId].books_downloaded) {
+    db.users[userId].books_downloaded = [];
+  }
+  if (!db.users[userId].books_downloaded.includes(bookKey)) {
+    db.users[userId].books_downloaded.push(bookKey);
+  }
+  if (!db.bookStats) db.bookStats = {};
+  if (!db.bookStats[bookKey]) db.bookStats[bookKey] = 0;
+  db.bookStats[bookKey]++;
+  saveDatabase();
+}
+
+function getUserStats(userId) {
+  const user = db.users[userId];
+  if (!user) return null;
+  return {
+    username: user.username,
+    is_paid: user.is_paid,
+    registration_date: user.registration_date,
+    total_downloads: user.total_downloads || 0,
+    books_downloaded: user.books_downloaded ? user.books_downloaded.length : 0,
+    preferred_language: user.preferred_language || 'Not set'
+  };
+}
+
 // ==========================================
-// 5. RECEIPT VALIDATION
+// 6. RECEIPT VALIDATION
 // ==========================================
 const RECEIPT_KEYWORDS = [
   "receipt", "payment", "deposit", "transfer", "transaction", 
@@ -342,16 +345,13 @@ const RECEIPT_KEYWORDS = [
 function validateBankReceipt(caption, fileName, fileType) {
   let confidence = 0;
   let reasons = [];
-  
   const textToCheck = (caption + " " + fileName).toLowerCase();
   let keywordMatches = 0;
-  
   for (const keyword of RECEIPT_KEYWORDS) {
     if (textToCheck.includes(keyword.toLowerCase())) {
       keywordMatches++;
     }
   }
-  
   if (keywordMatches >= 3) {
     confidence += 50;
     reasons.push(`Found ${keywordMatches} receipt keywords`);
@@ -362,26 +362,21 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 15;
     reasons.push(`Found ${keywordMatches} receipt keyword`);
   }
-  
   if (fileType === 'photo' || fileType === 'document') {
     confidence += 15;
     reasons.push(`File type is ${fileType}`);
   }
-  
   if (textToCheck.includes('0100775011101') || textToCheck.includes('1000661046841') || 
       textToCheck.includes('57080698') || textToCheck.includes('0943910036')) {
     confidence += 30;
     reasons.push(`Contains bank account number`);
   }
-  
   if (textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ')) {
     confidence += 15;
     reasons.push(`Contains recipient name`);
   }
-  
   const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
   const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
-  
   if (hasDatePattern) {
     confidence += 5;
     reasons.push(`Contains date pattern`);
@@ -390,63 +385,417 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 5;
     reasons.push(`Contains amount pattern`);
   }
-  
-  const isValid = confidence >= 40;
-  
   return {
-    isValid,
+    isValid: confidence >= 40,
     confidence,
     reasons: reasons.join(', ')
   };
 }
 
+// ==========================================
+// 7. MAIN KEYBOARD
+// ==========================================
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
   ['📞 Contact Me', '💬 Feedback'],
-  ['🔄 Start']
+  ['📊 My Stats', '🔄 Start']
 ]).resize();
 
 // ==========================================
-// 6. COMMANDS & MAIN MENU
+// 8. ERROR HANDLING & LOGGING
+// ==========================================
+function logActivity(userId, action, details) {
+  try {
+    const logFile = path.join(__dirname, 'activity.log');
+    const logEntry = `[${new Date().toISOString()}] User: ${userId} | Action: ${action} | ${JSON.stringify(details)}\n`;
+    fs.appendFileSync(logFile, logEntry);
+  } catch (e) {}
+}
+
+function logError(type, error) {
+  try {
+    const logFile = path.join(__dirname, 'error.log');
+    const logEntry = `[${new Date().toISOString()}] ${type}: ${error.stack || error.message || error}\n`;
+    fs.appendFileSync(logFile, logEntry);
+  } catch (e) {}
+}
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  logError('uncaughtException', err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection:', reason);
+  logError('unhandledRejection', reason);
+});
+
+// ==========================================
+// 9. RATE LIMITING
+// ==========================================
+const userRequests = {};
+
+function checkRateLimit(userId) {
+  const now = Date.now();
+  if (!userRequests[userId]) userRequests[userId] = [];
+  userRequests[userId] = userRequests[userId].filter(t => now - t < 60000);
+  if (userRequests[userId].length >= 30) return false;
+  userRequests[userId].push(now);
+  return true;
+}
+
+// ==========================================
+// 10. SIMPLIFIED ADD BOOK - Title → Preview → Category → File
+// ==========================================
+bot.command('addbook', (ctx) => {
+  const userId = ctx.from.id;
+  if (!isAdmin(userId)) {
+    return ctx.reply("⛔ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!");
+  }
+  
+  if (addBookSessions[userId]) {
+    return ctx.reply(
+      "⚠️ አሁን መጽሐፍ እየጨመሩ ነው!\n" +
+      "እባክዎትን መጀመሪያ ያለውን ይጨርሱ ወይም /canceladd ይጠቀሙ።"
+    );
+  }
+  
+  addBookSessions[userId] = { step: 'title' };
+  
+  ctx.reply(
+    `📚 **Add a New Book**\n\n` +
+    `**Step 1: Enter Book Title**\n\n` +
+    `✏️ Please type the full title of the book:\n` +
+    `Example: \`ድርሳነ ሚካኤል ብራና\``,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.on('text', async (ctx) => {
+  const userId = ctx.from.id;
+  const text = ctx.message.text;
+  
+  if (!addBookSessions[userId]) return;
+  
+  const session = addBookSessions[userId];
+  
+  if (text === '/canceladd') {
+    delete addBookSessions[userId];
+    return ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  }
+  
+  if (session.step === 'title') {
+    session.title = text.trim();
+    session.step = 'preview';
+    session.preview = '';
+    
+    return ctx.reply(
+      `✅ Title: \`${session.title}\`\n\n` +
+      `📄 **Step 2: Enter Preview Text**\n\n` +
+      `✏️ Please type the preview text (first 20-25 pages or a summary):\n` +
+      `📌 When done, type \`/done\` to finish preview.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+  
+  if (session.step === 'preview') {
+    if (text === '/done') {
+      if (!session.preview || session.preview.trim().length < 10) {
+        return ctx.reply("⚠️ Preview is too short! Please write at least 10 characters.");
+      }
+      
+      session.step = 'category';
+      
+      // Show categories as buttons
+      const categoryButtons = [];
+      const categories = Object.keys(booksDatabase);
+      for (let i = 0; i < categories.length; i += 2) {
+        const row = [];
+        row.push(Markup.button.callback(categories[i], `addcat_${categories[i]}`));
+        if (i + 1 < categories.length) {
+          row.push(Markup.button.callback(categories[i + 1], `addcat_${categories[i + 1]}`));
+        }
+        categoryButtons.push(row);
+      }
+      categoryButtons.push([Markup.button.callback("❌ Cancel", "cancel_add_book")]);
+      
+      return ctx.reply(
+        `✅ Preview saved: ${session.preview.substring(0, 50)}...\n\n` +
+        `📂 **Step 3: Select Category**\n\n` +
+        `Please choose a category from the buttons below:`,
+        Markup.inlineKeyboard(categoryButtons)
+      );
+    }
+    
+    if (!session.preview) {
+      session.preview = text;
+    } else {
+      session.preview += '\n\n' + text;
+    }
+    
+    const wordCount = session.preview.split(' ').length;
+    return ctx.reply(
+      `📄 Preview updated! (${wordCount} words so far)\n\n` +
+      `✏️ Continue typing or type \`/done\` when finished.`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+});
+
+// Category selection from buttons
+bot.action(/^addcat_(.+)$/, (ctx) => {
+  const userId = ctx.from.id;
+  const category = ctx.match[1];
+  
+  if (!isAdmin(userId)) {
+    return ctx.answerCbQuery("⛔ ይህ ለአድሚን ብቻ ነው!", { show_alert: true });
+  }
+  
+  if (!addBookSessions[userId]) {
+    return ctx.answerCbQuery("⚠️ /addbook ይጠቀሙ!", { show_alert: true });
+  }
+  
+  const session = addBookSessions[userId];
+  session.category = category;
+  session.step = 'file';
+  
+  ctx.editMessageText(
+    `✅ Category: \`${category}\`\n\n` +
+    `📎 **Step 4: Send the Book File**\n\n` +
+    `📤 Please send the book file (PDF, photo, video, etc.) to complete.\n\n` +
+    `💡 This is the final step!`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+// Cancel button
+bot.action('cancel_add_book', (ctx) => {
+  const userId = ctx.from.id;
+  if (addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  } else {
+    ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
+  }
+});
+
+bot.command('canceladd', (ctx) => {
+  const userId = ctx.from.id;
+  if (addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  } else {
+    ctx.reply("⚠️ ምንም እየተጨመረ ያለ መጽሐፍ የለም።");
+  }
+});
+
+// ==========================================
+// 11. FILE HANDLER WITH ADD BOOK SUPPORT
+// ==========================================
+function extractFileInfo(msg) {
+  if (msg.document) {
+    return {
+      type: 'document',
+      fileId: msg.document.file_id,
+      fileName: msg.document.file_name || 'Document.pdf',
+      mimeType: msg.document.mime_type || 'application/pdf',
+      fileSize: msg.document.file_size || 0
+    };
+  }
+  if (msg.photo && msg.photo.length > 0) {
+    const photo = msg.photo[msg.photo.length - 1];
+    return { type: 'photo', fileId: photo.file_id, fileName: 'Photo.jpg', mimeType: 'image/jpeg', fileSize: photo.file_size || 0 };
+  }
+  if (msg.video) {
+    return { type: 'video', fileId: msg.video.file_id, fileName: msg.video.file_name || 'Video.mp4', mimeType: 'video/mp4', fileSize: msg.video.file_size || 0 };
+  }
+  if (msg.audio) {
+    return { type: 'audio', fileId: msg.audio.file_id, fileName: msg.audio.file_name || 'Audio.mp3', mimeType: 'audio/mpeg', fileSize: msg.audio.file_size || 0 };
+  }
+  if (msg.voice) {
+    return { type: 'voice', fileId: msg.voice.file_id, fileName: 'Voice.ogg', mimeType: 'audio/ogg', fileSize: msg.voice.file_size || 0 };
+  }
+  if (msg.animation) {
+    return { type: 'animation', fileId: msg.animation.file_id, fileName: 'Animation.gif', mimeType: 'image/gif', fileSize: msg.animation.file_size || 0 };
+  }
+  if (msg.sticker) {
+    return { type: 'sticker', fileId: msg.sticker.file_id, fileName: 'Sticker.webp', mimeType: 'image/webp', fileSize: msg.sticker.file_size || 0 };
+  }
+  return null;
+}
+
+// Main file handler
+bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
+  const userId = ctx.from.id;
+  const message = ctx.message;
+  
+  if (!checkRateLimit(userId)) {
+    return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  }
+
+  // ==========================================
+  // CHECK: Is this part of Add Book session?
+  // ==========================================
+  if (addBookSessions[userId] && addBookSessions[userId].step === 'file') {
+    const session = addBookSessions[userId];
+    const fileInfo = extractFileInfo(message);
+    
+    if (!fileInfo) {
+      return ctx.reply("❌ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎትን ፋይሉን በቀጥታ ይላኩ።");
+    }
+    
+    // Add the book
+    const category = session.category;
+    const books = booksDatabase[category];
+    let maxId = 0;
+    books.forEach(book => {
+      const numId = parseInt(book.id);
+      if (!isNaN(numId) && numId > maxId) maxId = numId;
+    });
+    const newId = (maxId + 1).toString();
+    
+    const newBook = {
+      id: newId,
+      file_id: fileInfo.fileId,
+      title: session.title,
+      preview: session.preview || 'Preview not available'
+    };
+    
+    booksDatabase[category].push(newBook);
+    saveDatabase();
+    delete addBookSessions[userId];
+    
+    ctx.reply(
+      `✅ **Book Added Successfully!** 📚\n\n` +
+      `📂 **Category:** ${category}\n` +
+      `🆔 **Book ID:** ${newId}\n` +
+      `📄 **Title:** ${session.title}\n` +
+      `🔑 **File ID:** ${fileInfo.fileId}\n` +
+      `📝 **Preview:** ${session.preview.substring(0, 100)}...\n\n` +
+      `📊 Total books in this category: ${booksDatabase[category].length}`,
+      { parse_mode: 'Markdown' }
+    );
+    
+    logActivity(userId, 'add_book', { category, bookId: newId, title: session.title });
+    return;
+  }
+
+  // ==========================================
+  // ADMIN: Get File ID
+  // ==========================================
+  if (isAdmin(userId)) {
+    const fileInfo = extractFileInfo(message);
+    if (fileInfo) {
+      return ctx.reply(
+        `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
+        `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
+        `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
+        `📁 **File Type:** \`${fileInfo.type}\`\n` +
+        `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n\n` +
+        `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም።");
+  }
+
+  // ==========================================
+  // NON-ADMIN: Receipt validation
+  // ==========================================
+  if (isPaidUser(userId)) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል።");
+  }
+
+  const fileInfo = extractFileInfo(message);
+  if (!fileInfo) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("⚠️ እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
+  }
+
+  const caption = message.caption || "";
+  const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
+
+  if (!validation.isValid) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply(`❌ ይህ የባንክ ሪሲት አይደለም!\n\nእባክዎትን የከፈሉበትን ትክክለኛ ሪሲት ይላኩ።`);
+  }
+
+  const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+
+  try {
+    const forwardedMsg = await ctx.telegram.forwardMessage(
+      ADMIN_IDS[0],
+      ctx.chat.id,
+      message.message_id
+    );
+
+    db.pendingReceipts[forwardedMsg.message_id] = {
+      userId: userId,
+      orderNumber: orderNumber,
+      confidence: validation.confidence
+    };
+    saveDatabase();
+
+    for (const adminId of ADMIN_IDS) {
+      await ctx.telegram.sendMessage(
+        adminId,
+        `📥 **አዲስ ሪሲት**\n\n🧾 Order: #${orderNumber}\n👤 User: ${userId}\n✅ Confidence: ${validation.confidence}%\n📋 ${validation.reasons}`,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`),
+              Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)
+            ]
+          ])
+        }
+      );
+    }
+
+    ctx.reply(`✅ ሪሲትዎ ተረጋግጧል!\n\n🧾 Order: #${orderNumber}\n📊 Confidence: ${validation.confidence}%\n\nአድሚኑ በጥቂት ደቂቃዎች ውስጥ ያጸድቀዋል!`);
+  } catch (error) {
+    console.error('Error:', error);
+    ctx.reply("⚠️ ሪሲትዎን ማስኬድ አልቻልኩም። እባክዎን በቀጥታ ወደ አድሚን ይላኩ።");
+  }
+});
+
+// ==========================================
+// 12. COMMANDS & MENU HANDLERS
 // ==========================================
 bot.start((ctx) => {
+  const userId = ctx.from.id;
+  if (!checkRateLimit(userId)) {
+    return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  }
+  
   registerUser(ctx.from);
-  ctx.reply("እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ", mainKeyboard);
-});
-
-bot.hears('🔄 Start', (ctx) => {
-  ctx.reply("እንኳን ወደ ታላቁ የዲጂታል መጽሐፍ ቦት በሰላም መጡ", mainKeyboard);
-});
-
-bot.hears('📞 Contact Me', (ctx) => {
-  ctx.reply(`📞 ለተጨማሪ መረጃ እና ግንኙነት፦\n\n• Telegram: ${ADMIN_USERNAME}\n• Email: matewosgetahunseifu@gmail.com`);
-});
-
-bot.hears('💬 Feedback', (ctx) => {
-  ctx.reply(`💬 አስተያየትዎን ያድርሱን፦\n\nለማንኛውም ጥያቄ፣ አስተያየት ወይም ተጨማሪ መጽሐፍ ጥቆማ በቴሌግራም አድራሻችን ያግኙን፦\n\n• Telegram: ${ADMIN_USERNAME}\n• Email: matewosgetahunseifu@gmail.com`);
+  const user = db.users[userId];
+  let message = "እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ! 📚✨\n\n";
+  
+  if (user.is_paid) {
+    message += "✅ እርስዎ ክፍያ ፈጽመዋል! ሁሉንም መጽሐፍት ማውረድ ይችላሉ።\n";
+  } else {
+    message += "💰 ሁሉንም መጽሐፍት ለማግኘት 200 ብር ክፈሉ።\n";
+  }
+  message += `📚 እስካሁን ${user.total_downloads || 0} መጽሐፍት አውርደዋል።`;
+  
+  ctx.reply(message, mainKeyboard);
 });
 
 bot.hears('📚 መጽሐፍት', (ctx) => {
   ctx.reply(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [
-        Markup.button.callback("በግዕዝ", "lang_geez"),
-        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
-      ],
-      [
-        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
-      ],
-      [
-        Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("In English", "lang_eng")
-      ]
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
     ])
   );
 });
 
 // ==========================================
-// 7. CATEGORY ROUTING
+// 13. CATEGORY ROUTING (All languages)
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -584,448 +933,102 @@ bot.action("back_to_lang", (ctx) => {
   ctx.editMessageText(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [
-        Markup.button.callback("በግዕዝ", "lang_geez"),
-        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
-      ],
-      [
-        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
-      ],
-      [
-        Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("In English", "lang_eng")
-      ]
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
     ])
   );
 });
 
 // ==========================================
-// 8. BOOK DISPLAY & DELIVERY
+// 14. BOOK DISPLAY & DELIVERY
 // ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
   const books = booksDatabase[catKey];
-
   if (!books || books.length === 0) {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
-
   const buttons = books.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${catKey}_${book.id}`)
   ]);
-
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
-
   ctx.editMessageText("ማንበብ የሚፈልጉትን መጽሐፍ ይምረጡ፦", Markup.inlineKeyboard(buttons));
 });
 
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
+  const userId = ctx.from.id;
   const catKey = ctx.match[1];
   const bookId = ctx.match[2];
-  const userId = ctx.from.id;
-
   const book = findBook(catKey, bookId);
-
-  if (!book) {
-    return ctx.answerCbQuery("መጽሐፉ አልተገኘም።", { show_alert: true });
-  }
+  if (!book) return ctx.answerCbQuery("መጽሐፉ አልተገኘም።", { show_alert: true });
 
   if (!isPaidUser(userId)) {
     return ctx.reply(
-      `የኦርቶዶክስ መንፈሳዊ መጽሐፍት\n\nሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም 200 ብር አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\nክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback("👁 ቅምሻ / Preview", `prev_${catKey}_${bookId}`)]
-      ])
+      `📖 **${book.title}**\n\n📄 **Preview (${PREVIEW_PAGES} pages):**\n${book.preview || 'Preview not available'}\n\n━━━━━━━━━━━━━━━━━━━━━\n📚 **የኦርቶዶክስ መንፈሳዊ መጽሐፍት**\n\nሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም **200 ብር** አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\n📸 ክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።`,
+      { parse_mode: 'Markdown' }
     );
   }
 
   ctx.replyWithDocument(book.file_id, {
-    caption: `📖 ${book.title}\n\nመልካም ንባብ!`,
+    caption: `📖 ${book.title}\n\nመልካም ንባብ! 📚✨`,
     protect_content: true
-  }).catch(() => {
-    ctx.reply(`📖 የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ አልተገኘም)`);
-  });
-});
-
-bot.action(/^prev_(.+)_(.+)$/, (ctx) => {
-  const catKey = ctx.match[1];
-  const bookId = ctx.match[2];
-  const book = findBook(catKey, bookId);
-
-  const title = book ? book.title : "መጽሐፍ";
-
-  ctx.reply(`📄 የመጽሐፉ ቅምሻ (Preview - ${title})፦\n\nይህ የናሙና ገጽ ነው፤ ሙሉውን መጽሐፍ ለማንበብ እባክዎን ክፍያውን ይፈጽሙ።`, {
-    protect_content: true
+  }).then(() => trackDownload(userId, catKey, bookId)).catch(() => {
+    ctx.reply(`❌ የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ አልተገኘም)`);
   });
 });
 
 // ==========================================
-// 9. FILE HANDLER - COMPLETE SOLUTION FOR ALL CASES
+// 15. ADMIN COMMANDS
 // ==========================================
+bot.command('stats', (ctx) => {
+  if (!isAdmin(ctx.from.id)) return;
+  const totalUsers = Object.keys(db.users).length;
+  const paidUsers = Object.values(db.users).filter(u => u.is_paid).length;
+  ctx.reply(`📊 **Bot Statistics**\n\n👤 Total Users: ${totalUsers}\n💰 Paid Users: ${paidUsers}\n📖 Free Users: ${totalUsers - paidUsers}\n📁 Books Available: ${Object.values(booksDatabase).reduce((sum, cat) => sum + cat.length, 0)}`, { parse_mode: 'Markdown' });
+});
 
-// Helper function to extract file info from ANY message
-function extractFileInfo(msg) {
-  if (msg.document) {
-    return {
-      type: 'document',
-      fileId: msg.document.file_id,
-      fileName: msg.document.file_name || 'Document.pdf',
-      mimeType: msg.document.mime_type || 'application/pdf',
-      fileSize: msg.document.file_size || 0
-    };
-  }
-  if (msg.photo && msg.photo.length > 0) {
-    const photo = msg.photo[msg.photo.length - 1];
-    return {
-      type: 'photo',
-      fileId: photo.file_id,
-      fileName: 'Photo.jpg',
-      mimeType: 'image/jpeg',
-      fileSize: photo.file_size || 0
-    };
-  }
-  if (msg.video) {
-    return {
-      type: 'video',
-      fileId: msg.video.file_id,
-      fileName: msg.video.file_name || 'Video.mp4',
-      mimeType: 'video/mp4',
-      fileSize: msg.video.file_size || 0
-    };
-  }
-  if (msg.audio) {
-    return {
-      type: 'audio',
-      fileId: msg.audio.file_id,
-      fileName: msg.audio.file_name || 'Audio.mp3',
-      mimeType: 'audio/mpeg',
-      fileSize: msg.audio.file_size || 0
-    };
-  }
-  if (msg.voice) {
-    return {
-      type: 'voice',
-      fileId: msg.voice.file_id,
-      fileName: 'Voice.ogg',
-      mimeType: 'audio/ogg',
-      fileSize: msg.voice.file_size || 0
-    };
-  }
-  if (msg.animation) {
-    return {
-      type: 'animation',
-      fileId: msg.animation.file_id,
-      fileName: 'Animation.gif',
-      mimeType: 'image/gif',
-      fileSize: msg.animation.file_size || 0
-    };
-  }
-  if (msg.sticker) {
-    return {
-      type: 'sticker',
-      fileId: msg.sticker.file_id,
-      fileName: 'Sticker.webp',
-      mimeType: 'image/webp',
-      fileSize: msg.sticker.file_size || 0
-    };
-  }
-  return null;
-}
-
-// Main file handler - handles ALL cases
-bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
-  const userId = ctx.from.id;
-  const message = ctx.message;
-  
-  console.log(`📁 File received from user ${userId}`);
-
-  // ==========================================
-  // 🔑 ADMIN: Get File ID - Handles ALL cases!
-  // ==========================================
-  if (userId === ADMIN_ID) {
-    
-    // CASE 1: Check if it's a forwarded message
-    const isForwarded = message.forward_from_chat || message.forward_from;
-    
-    // Try to get file info directly
-    let fileInfo = extractFileInfo(message);
-    
-    // If we have file info, show it!
-    if (fileInfo) {
-      let forwardedNote = isForwarded ? '\n📤 **Forwarded File** - ID extracted successfully!' : '';
-      
-      return ctx.reply(
-        `🔑 **የፋይሉ ID ተዘጋጅቷል**\n\n` +
-        `📄 **File Name:** \`${fileInfo.fileName}\`\n` +
-        `🆔 **File ID:** \`${fileInfo.fileId}\`\n` +
-        `📁 **File Type:** \`${fileInfo.type}\`\n` +
-        `📋 **MIME Type:** \`${fileInfo.mimeType}\`\n` +
-        `📦 **File Size:** \`${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB\`\n` +
-        `${forwardedNote}\n\n` +
-        `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።\n\n` +
-        `📝 **ለመጠቀም መመሪያ:**\n` +
-        `1️⃣ ከላይ ያለውን File ID ይቅዱ\n` +
-        `2️⃣ በ booksDatabase ውስጥ ተገቢውን መጽሐፍ ይፈልጉ\n` +
-        `3️⃣ የ 'file_id' እሴትን በተቀዳው ID ይቀይሩ`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-    
-    // CASE 2: If it's forwarded but we couldn't get file info directly
-    if (isForwarded) {
-      return ctx.reply(
-        `⚠️ **ይህ የተላለፈ (Forwarded) ፋይል ነው!**\n\n` +
-        `ከቻናል የተላለፈ ፋይል ላይ File ID ማግኘት አይቻልም።\n\n` +
-        `✅ **መፍትሔዎች:**\n\n` +
-        `**1️⃣ በቀጥታ ይላኩ (Recommended):**\n` +
-        `   • ፋይሉን ያውርዱ (Download)\n` +
-        `   • በቀጥታ ወደዚህ ቦት ይላኩ\n` +
-        `   • File ID ያገኛሉ\n\n` +
-        `**2️⃣ @get_id_bot ይጠቀሙ:**\n` +
-        `   • ፋይሉን ወደ @get_id_bot ያስተላልፉ\n` +
-        `   • File ID ይሰጥዎታል\n\n` +
-        `**3️⃣ /getfileid ትዕዛዝ ይጠቀሙ:**\n` +
-        `   • ፋይሉን ወደዚህ ቦት ያስተላልፉ\n` +
-        `   • በፋይሉ ላይ /getfileid ይላኩ (Reply)`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-    
-    return ctx.reply("⚠️ የፋይሉ መረጃ ሊገኝ አልቻለም። እባክዎን ፋይሉን በቀጥታ ይላኩ።");
-  }
-
-  // ==========================================
-  // For NON-ADMIN users: Receipt validation
-  // ==========================================
-  
-  // Check if user already paid
-  if (isPaidUser(userId)) {
-    try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply("✅ እርስዎ ቀደም ሲል ክፍያ ፈጽመዋል። ተጨማሪ ሪሲት መላክ አያስፈልግዎትም።");
-  }
-
-  // Extract file info
-  const fileInfo = extractFileInfo(message);
-  
-  if (!fileInfo) {
-    try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply("⚠️ እባክዎን ትክክለኛ የባንክ ሪሲት ይላኩ።");
-  }
-
-  // Validate receipt
-  const caption = message.caption || "";
-  const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
-
-  if (!validation.isValid) {
-    try { await ctx.deleteMessage(); } catch (err) {}
-    return ctx.reply(
-      `❌ ይህ የባንክ ሪሲት አይደለም!\n\n` +
-      `እባክዎትን የከፈሉበትን ትክክለኛ ሪሲት ይላኩ።`
-    );
-  }
-
-  // Process valid receipt
-  const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
-
-  try {
-    const forwardedMsg = await ctx.telegram.forwardMessage(
-      ADMIN_ID,
-      ctx.chat.id,
-      message.message_id
-    );
-
-    db.pendingReceipts[forwardedMsg.message_id] = {
-      userId: userId,
-      orderNumber: orderNumber,
-      confidence: validation.confidence
-    };
-
-    await ctx.telegram.sendMessage(
-      ADMIN_ID,
-      `📥 **አዲስ ሪሲት**\n\n` +
-      `🧾 Order: #${orderNumber}\n` +
-      `👤 User: ${userId}\n` +
-      `✅ Confidence: ${validation.confidence}%\n` +
-      `📋 ${validation.reasons}`,
-      {
-        parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [
-            Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`),
-            Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)
-          ]
-        ])
-      }
-    );
-
-    ctx.reply(
-      `✅ ሪሲትዎ ተረጋግጧል!\n\n` +
-      `🧾 Order: #${orderNumber}\n` +
-      `📊 Confidence: ${validation.confidence}%\n\n` +
-      `አድሚኑ በጥቂት ደቂቃዎች ውስጥ ያጸድቀዋል!`
-    );
-  } catch (error) {
-    console.error('Error:', error);
-    ctx.reply("⚠️ ሪሲትዎን ማስኬድ አልቻልኩም።");
-  }
+bot.command('backup', (ctx) => {
+  if (!isAdmin(ctx.from.id)) return;
+  ctx.replyWithDocument({
+    source: Buffer.from(JSON.stringify(db, null, 2), 'utf-8'),
+    filename: `backup_${Date.now()}.json`
+  }, { caption: "📦 የዳታቤዝ ባካፕ" });
 });
 
 // ==========================================
-// 10. GET FILE ID COMMAND - For forwarded files!
-// ==========================================
-bot.command('getfileid', async (ctx) => {
-  // Only admin can use this
-  if (ctx.from.id !== ADMIN_ID) {
-    return ctx.reply("⚠️ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!");
-  }
-  
-  const reply = ctx.message.reply_to_message;
-  
-  if (!reply) {
-    return ctx.reply(
-      `⚠️ **እባክዎትን ፋይሉን ለዚህ መልእክት ይላኩ!**\n\n` +
-      `📌 **አጠቃቀም:**\n` +
-      `1️⃣ ፋይሉን ወደዚህ ቦት ያስተላልፉ (Forward)\n` +
-      `2️⃣ በተላለፈው ፋይል ላይ /getfileid ይላኩ (Reply)\n` +
-      `3️⃣ File ID ያገኛሉ!`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-  
-  let fileId = null;
-  let fileName = '';
-  let fileType = '';
-  
-  // Check all possible file types in the replied message
-  if (reply.document) {
-    fileId = reply.document.file_id;
-    fileName = reply.document.file_name || 'Document.pdf';
-    fileType = 'document';
-  } else if (reply.photo && reply.photo.length > 0) {
-    const photo = reply.photo[reply.photo.length - 1];
-    fileId = photo.file_id;
-    fileName = 'Photo.jpg';
-    fileType = 'photo';
-  } else if (reply.video) {
-    fileId = reply.video.file_id;
-    fileName = reply.video.file_name || 'Video.mp4';
-    fileType = 'video';
-  } else if (reply.audio) {
-    fileId = reply.audio.file_id;
-    fileName = reply.audio.file_name || 'Audio.mp3';
-    fileType = 'audio';
-  } else if (reply.voice) {
-    fileId = reply.voice.file_id;
-    fileName = 'Voice.ogg';
-    fileType = 'voice';
-  } else if (reply.animation) {
-    fileId = reply.animation.file_id;
-    fileName = 'Animation.gif';
-    fileType = 'animation';
-  } else if (reply.sticker) {
-    fileId = reply.sticker.file_id;
-    fileName = 'Sticker.webp';
-    fileType = 'sticker';
-  }
-  
-  if (fileId) {
-    // Check if the file was forwarded
-    const isForwarded = reply.forward_from_chat || reply.forward_from;
-    let forwardedNote = isForwarded ? '📤 **Forwarded File** - ID extracted successfully!' : '';
-    
-    ctx.reply(
-      `🔑 **File ID ተገኝቷል!**\n\n` +
-      `📄 **File Name:** \`${fileName}\`\n` +
-      `🆔 **File ID:** \`${fileId}\`\n` +
-      `📁 **File Type:** \`${fileType}\`\n` +
-      `${forwardedNote}\n\n` +
-      `✅ ይህንን File ID ኮፒ በማድረግ በ 'booksDatabase' ውስጥ በ 'file_id' ቦታ ማስገባት ይችላሉ።`,
-      { parse_mode: 'Markdown' }
-    );
-  } else {
-    ctx.reply(
-      `⚠️ ይህ መልእክት ፋይል የለውም!\n\n` +
-      `📌 እባክዎትን ፋይል ያለው መልእክት ላይ Reply ያድርጉ።`
-    );
-  }
-});
-
-// ==========================================
-// 11. HELP COMMAND
-// ==========================================
-bot.command('help', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
-  
-  ctx.reply(
-    `📚 **Bot Commands & Help**\n\n` +
-    `**📁 Getting File ID:**\n` +
-    `1️⃣ Send file directly → Auto shows ID\n` +
-    `2️⃣ Forward file → Reply with /getfileid\n` +
-    `3️⃣ Use @get_id_bot for any file\n\n` +
-    `**🔧 Admin Commands:**\n` +
-    `• /stats - View bot statistics\n` +
-    `• /getfileid - Get ID from replied file\n` +
-    `• /backup - Download database backup\n` +
-    `• /help - Show this help\n\n` +
-    `**📚 Book Categories:**\n` +
-    `• Ge'ez: Law, History, Bible\n` +
-    `• Ge'ez-Amharic: All categories\n` +
-    `• Amharic: All categories\n` +
-    `• English: All categories`,
-    { parse_mode: 'Markdown' }
-  );
-});
-
-// ==========================================
-// 12. ADMIN ACTIONS
+// 16. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
-  const targetUserId = parseInt(ctx.match[1]);
+  if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery("⛔ ለአድሚን ብቻ!", { show_alert: true });
+  const userId = parseInt(ctx.match[1]);
   const orderNumber = ctx.match[2];
-
-  if (!db.users[targetUserId]) {
-    db.users[targetUserId] = { is_paid: true };
-  } else {
-    db.users[targetUserId].is_paid = true;
-  }
-
-  ctx.telegram.sendMessage(
-    targetUserId,
-    `✅ ክፍያ #${orderNumber} ተቀባይነት አግኝቷል! ሁሉንም መጽሐፍት ማውረድ ይችላሉ።`
-  );
-
+  markUserPaid(userId);
+  ctx.telegram.sendMessage(userId, `✅ ክፍያ #${orderNumber} ተቀባይነት አግኝቷል! 🎉\n\nከአሁን በኋላ ሁሉንም መጽሐፍት ማውረድ ይችላሉ። 📚`);
   ctx.editMessageText(`✅ ክፍያ #${orderNumber} ጸድቋል`);
 });
 
 bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
-  const targetUserId = parseInt(ctx.match[1]);
+  if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery("⛔ ለአድሚን ብቻ!", { show_alert: true });
+  const userId = parseInt(ctx.match[1]);
   const orderNumber = ctx.match[2];
-
-  ctx.telegram.sendMessage(
-    targetUserId,
-    `❌ ክፍያ #${orderNumber} ውድቅ ተደርጓል። እባክዎን ትክክለኛ ሪሲት ይላኩ።`
-  );
-
+  ctx.telegram.sendMessage(userId, `❌ ክፍያ #${orderNumber} ውድቅ ተደርጓል። እባክዎትን ትክክለኛ ሪሲት ይላኩ።`);
   ctx.editMessageText(`❌ ክፍያ #${orderNumber} ውድቅ ተደርጓል`);
 });
 
 // ==========================================
-// 13. SEARCH
+// 17. SEARCH
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
-  ctx.reply("እባክዎን የመጽሐፍ ስም ያስገቡ፦");
+  ctx.reply("🔍 እባክዎን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 bot.on('text', (ctx) => {
   const text = ctx.message.text;
-
-  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '🔄 Start'].includes(text) || text.startsWith('/')) {
-    return;
-  }
+  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text) || text.startsWith('/')) return;
 
   const query = text.trim().toLowerCase();
   let matches = [];
-
   Object.keys(booksDatabase).forEach(catKey => {
     booksDatabase[catKey].forEach(book => {
       if (book.title.toLowerCase().includes(query)) {
@@ -1035,54 +1038,31 @@ bot.on('text', (ctx) => {
   });
 
   if (matches.length === 0) {
-    return ctx.reply("ምንም መጽሐፍ አልተገኘም።");
+    return ctx.reply(`🔍 ምንም መጽሐፍ አልተገኘም "${text}"`);
   }
 
-  const buttons = matches.map((book, index) => [
+  const buttons = matches.slice(0, 20).map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.catKey}_${book.id}`)
   ]);
-
-  ctx.reply(`🔍 ውጤቶች (${matches.length})፦`, Markup.inlineKeyboard(buttons));
+  ctx.reply(`🔍 ውጤቶች (${matches.length} ተገኝተዋል)፦`, Markup.inlineKeyboard(buttons));
 });
 
 // ==========================================
-// 14. ADMIN COMMANDS
-// ==========================================
-bot.command('stats', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
-
-  const totalUsers = Object.keys(db.users).length;
-  const paidUsers = Object.values(db.users).filter(u => u.is_paid).length;
-
-  ctx.reply(`📊 ስታቲስቲክስ\n\n• ጠቅላላ: ${totalUsers}\n• ክፍያ የፈጸሙ: ${paidUsers}\n• ነፃ: ${totalUsers - paidUsers}`);
-});
-
-bot.command('backup', (ctx) => {
-  if (ctx.from.id !== ADMIN_ID) return;
-
-  const backupData = JSON.stringify(db, null, 2);
-  ctx.replyWithDocument({
-    source: Buffer.from(backupData, 'utf-8'),
-    filename: `backup_${Date.now()}.json`
-  });
-});
-
-// ==========================================
-// 15. LAUNCH
+// 18. LAUNCH
 // ==========================================
 bot.catch((err, ctx) => {
-  console.error(`Error:`, err);
+  console.error(`❌ Error:`, err);
+  logError('bot_catch', err);
 });
 
-bot.launch({
-  dropPendingUpdates: true
-}).then(() => {
+bot.launch({ dropPendingUpdates: true }).then(() => {
   console.log("✅ Bot is running...");
   console.log("📚 Orthodox Spiritual Books Bot is ready!");
-  console.log("👑 Admin ID:", ADMIN_ID);
+  console.log("👑 Admin IDs:", ADMIN_IDS);
+  console.log(`📖 Total Books: ${Object.values(booksDatabase).reduce((sum, cat) => sum + cat.length, 0)}`);
 }).catch((err) => {
   console.error("❌ Failed to launch:", err);
 });
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => { saveDatabase(); bot.stop('SIGINT'); });
+process.once('SIGTERM', () => { saveDatabase(); bot.stop('SIGTERM'); });
