@@ -17,7 +17,44 @@ const PREVIEW_PAGES = 25;
 const bot = new Telegraf(BOT_TOKEN);
 
 // ==========================================
-// 2. DATABASE SYSTEM
+// 2. EXPRESS SERVER (For Render Uptime)
+// ==========================================
+const app = express();
+
+// Health check routes
+app.get('/', (req, res) => {
+  res.send('✅ Orthodox Spiritual Books Bot is running!');
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).send('OK - Bot is Alive');
+});
+
+app.get('/ping', (req, res) => {
+  res.status(200).send('Pong');
+});
+
+// Start Express server
+app.listen(PORT, () => {
+  console.log(`🌐 Server is running on port ${PORT}`);
+});
+
+// Self-ping to keep bot alive (for Render free tier)
+setInterval(async () => {
+  const serverUrl = process.env.RENDER_EXTERNAL_URL;
+  if (serverUrl) {
+    try {
+      if (globalThis.fetch) {
+        await globalThis.fetch(`${serverUrl}/ping`);
+      }
+    } catch (err) {
+      console.log('Ping failed:', err.message);
+    }
+  }
+}, 3 * 60 * 1000);
+
+// ==========================================
+// 3. DATABASE SYSTEM
 // ==========================================
 const DATA_FILE = path.join(__dirname, 'database.json');
 
@@ -45,12 +82,12 @@ function saveDatabase() {
 let db = loadDatabase();
 
 // ==========================================
-// 3. ADD BOOK SESSIONS (Simplified)
+// 4. ADD BOOK SESSIONS
 // ==========================================
 const addBookSessions = {};
 
 // ==========================================
-// 4. BOOKS DATABASE (Your existing books)
+// 5. BOOKS DATABASE (Your existing books)
 // ==========================================
 const booksDatabase = {
   "geez_law": [
@@ -258,7 +295,7 @@ const booksDatabase = {
 };
 
 // ==========================================
-// 5. HELPER FUNCTIONS
+// 6. HELPER FUNCTIONS
 // ==========================================
 function isAdmin(userId) {
   return ADMIN_IDS.includes(userId);
@@ -329,7 +366,7 @@ function getUserStats(userId) {
 }
 
 // ==========================================
-// 6. RECEIPT VALIDATION
+// 7. RECEIPT VALIDATION
 // ==========================================
 const RECEIPT_KEYWORDS = [
   "receipt", "payment", "deposit", "transfer", "transaction", 
@@ -393,7 +430,7 @@ function validateBankReceipt(caption, fileName, fileType) {
 }
 
 // ==========================================
-// 7. MAIN KEYBOARD
+// 8. MAIN KEYBOARD
 // ==========================================
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
@@ -402,7 +439,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 8. ERROR HANDLING & LOGGING
+// 9. ERROR HANDLING & LOGGING
 // ==========================================
 function logActivity(userId, action, details) {
   try {
@@ -431,7 +468,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // ==========================================
-// 9. RATE LIMITING
+// 10. RATE LIMITING
 // ==========================================
 const userRequests = {};
 
@@ -445,7 +482,7 @@ function checkRateLimit(userId) {
 }
 
 // ==========================================
-// 10. SIMPLIFIED ADD BOOK - Title → Preview → Category → File
+// 11. SIMPLIFIED ADD BOOK - Title → Preview → Category → File
 // ==========================================
 bot.command('addbook', (ctx) => {
   const userId = ctx.from.id;
@@ -590,7 +627,7 @@ bot.command('canceladd', (ctx) => {
 });
 
 // ==========================================
-// 11. FILE HANDLER WITH ADD BOOK SUPPORT
+// 12. FILE HANDLER WITH ADD BOOK SUPPORT
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -761,7 +798,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
 });
 
 // ==========================================
-// 12. COMMANDS & MENU HANDLERS
+// 13. COMMANDS & MENU HANDLERS
 // ==========================================
 bot.start((ctx) => {
   const userId = ctx.from.id;
@@ -795,7 +832,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 });
 
 // ==========================================
-// 13. CATEGORY ROUTING (All languages)
+// 14. CATEGORY ROUTING (All languages)
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   ctx.editMessageText(
@@ -941,7 +978,7 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// 14. BOOK DISPLAY & DELIVERY
+// 15. BOOK DISPLAY & DELIVERY
 // ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -979,7 +1016,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 15. ADMIN COMMANDS
+// 16. ADMIN COMMANDS
 // ==========================================
 bot.command('stats', (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
@@ -997,7 +1034,7 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 16. ADMIN ACTIONS (Approve/Reject)
+// 17. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery("⛔ ለአድሚን ብቻ!", { show_alert: true });
@@ -1017,7 +1054,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 17. SEARCH
+// 18. SEARCH
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("🔍 እባክዎን የመጽሐፍ ስም ያስገቡ፦");
@@ -1048,7 +1085,7 @@ bot.on('text', (ctx) => {
 });
 
 // ==========================================
-// 18. LAUNCH
+// 19. LAUNCH
 // ==========================================
 bot.catch((err, ctx) => {
   console.error(`❌ Error:`, err);
