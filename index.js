@@ -84,7 +84,7 @@ let db = loadDatabase();
 const addBookSessions = {};
 
 // ==========================================
-// 5. BOOKS DATABASE (Complete – with all categories)
+// 5. BOOKS DATABASE (Complete)
 // ==========================================
 const booksDatabase = {
   "geez_law": [
@@ -282,24 +282,6 @@ const booksDatabase = {
     { id: "4", file_id: "DUMMY_ENG_OT_04", title: "Book of Enoch", preview: "This is the first page of Book of Enoch..." },
     { id: "5", file_id: "DUMMY_ENG_OT_05", title: "Book of Jubilees", preview: "This is the first page of Book of Jubilees..." }
   ],
-  "eng_gdsl": [
-    // empty – add via /addbook
-  ],
-  "eng_nt": [
-    // empty – add via /addbook
-  ],
-  "eng_std": [
-    // empty – add via /addbook
-  ],
-  "eng_chr": [
-    // empty – add via /addbook
-  ],
-  "eng_mry": [
-    // empty – add via /addbook
-  ],
-  "eng_snt": [
-    // empty – add via /addbook
-  ],
   "eng_thl": [
     { id: "1", file_id: "DUMMY_ENG_THL_01", title: "Orthodox Theology Basics", preview: "This is the first page of Orthodox Theology Basics..." },
     { id: "2", file_id: "DUMMY_ENG_THL_02", title: "Mariology in Tradition", preview: "This is the first page of Mariology in Tradition..." },
@@ -384,13 +366,13 @@ function getUserStats(userId) {
 }
 
 // ==========================================
-// 7. RECEIPT VALIDATION – requires recipient or account
+// 7. RECEIPT VALIDATION
 // ==========================================
 const RECEIPT_KEYWORDS = [
-  "receipt", "payment", "deposit", "transfer", "transaction",
+  "receipt", "payment", "deposit", "transfer", "transaction", 
   "bank", "cbe", "telebirr", "abyssinia", "ahadu", "etb",
   "ref", "reference", "amount", "date", "time",
-  "ሪሲት", "ክፍያ", "ተቀባይ", "ላኪ", "ገንዘብ", "ባንክ",
+  "ሪሲት", "ክፍያ", "ተቀባይ", "ላኪ", "ገንዘብ", "ባንክ", 
   "ሂሳብ", "ቁጥር", "ማረጋገጫ", "ደረሰ", "ተላልፏል",
   "ብር", "ሺ", "ሺህ", "መቶ",
   "0100775011101", "1000661046841", "57080698", "0943910036",
@@ -401,21 +383,6 @@ function validateBankReceipt(caption, fileName, fileType) {
   let confidence = 0;
   let reasons = [];
   const textToCheck = (caption + " " + fileName).toLowerCase();
-  
-  // ---- MANDATORY: recipient name or account number ----
-  const hasRecipient = textToCheck.includes('matewos getahun seifu') || 
-                       textToCheck.includes('ማቴዎስ ጌታሁን ሰይፉ') ||
-                       textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ');
-  const hasAccount = textToCheck.includes('0100775011101') || 
-                     textToCheck.includes('1000661046841') ||
-                     textToCheck.includes('57080698') || 
-                     textToCheck.includes('0943910036');
-  
-  if (!hasRecipient && !hasAccount) {
-    return { isValid: false, confidence: 0, reasons: 'Missing recipient name or account number' };
-  }
-  
-  // ---- Continue with scoring ----
   let keywordMatches = 0;
   for (const keyword of RECEIPT_KEYWORDS) {
     if (textToCheck.includes(keyword.toLowerCase())) {
@@ -436,40 +403,39 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 15;
     reasons.push(`File type is ${fileType}`);
   }
-  if (hasAccount) {
+  if (textToCheck.includes('0100775011101') || textToCheck.includes('1000661046841') || 
+      textToCheck.includes('57080698') || textToCheck.includes('0943910036')) {
     confidence += 30;
-    reasons.push('Contains bank account number');
+    reasons.push(`Contains bank account number`);
   }
-  if (hasRecipient) {
-    confidence += 20;
-    reasons.push('Contains recipient name');
+  if (textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ')) {
+    confidence += 15;
+    reasons.push(`Contains recipient name`);
   }
   const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
   const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
   if (hasDatePattern) {
     confidence += 5;
-    reasons.push('Contains date pattern');
+    reasons.push(`Contains date pattern`);
   }
   if (hasAmountPattern) {
     confidence += 5;
-    reasons.push('Contains amount pattern');
+    reasons.push(`Contains amount pattern`);
   }
-  // Lower threshold because mandatory check already passed
-  const isValid = confidence >= 30;
   return {
-    isValid,
+    isValid: confidence >= 40,
     confidence,
     reasons: reasons.join(', ')
   };
 }
 
 // ==========================================
-// 8. MAIN KEYBOARD – FULL AMHARIC
+// 8. MAIN KEYBOARD
 // ==========================================
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
-  ['📞 አግኙኝ', '💬 አስተያየት'],
-  ['📊 ስታቲስቲክስ', '🔄 ዳግም ጀምር']
+  ['📞 Contact Me', '💬 Feedback'],
+  ['📊 My Stats', '🔄 Start']
 ]).resize();
 
 // ==========================================
@@ -521,7 +487,7 @@ function checkRateLimit(userId) {
 }
 
 // ==========================================
-// 11. COMMANDS & BUTTON HANDLERS
+// 11. COMMANDS & BUTTON HANDLERS (MUST BE BEFORE bot.on('text'))
 // ==========================================
 bot.start((ctx) => {
   const userId = ctx.from.id;
@@ -549,7 +515,7 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
   );
 });
 
-bot.hears('📊 ስታቲስቲክስ', (ctx) => {
+bot.hears('📊 My Stats', (ctx) => {
   const stats = getUserStats(ctx.from.id);
   if (!stats) return ctx.reply("❌ መረጃ አልተገኘም።");
   ctx.reply(
@@ -558,9 +524,9 @@ bot.hears('📊 ስታቲስቲክስ', (ctx) => {
   );
 });
 
-bot.hears('📞 አግኙኝ', (ctx) => ctx.reply(`📞 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
-bot.hears('💬 አስተያየት', (ctx) => ctx.reply(`💬 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
-bot.hears('🔄 ዳግም ጀምር', (ctx) => ctx.reply("እንኳን ደህና መጡ!", mainKeyboard));
+bot.hears('📞 Contact Me', (ctx) => ctx.reply(`📞 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
+bot.hears('💬 Feedback', (ctx) => ctx.reply(`💬 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
+bot.hears('🔄 Start', (ctx) => ctx.reply("እንኳን ደህና መጡ!", mainKeyboard));
 bot.hears(/^start$/i, (ctx) => {
   ctx.reply("👋 እንኳን ደህና መጡ! እባክዎትን ከስር ያሉትን ቁልፎች ይጫኑ:", mainKeyboard);
 });
@@ -594,7 +560,7 @@ bot.command('canceladd', (ctx) => {
 });
 
 // ==========================================
-// 13. CATEGORY ROUTING (including English sub-menus)
+// 13. CATEGORY ROUTING
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   const userId = ctx.from.id;
@@ -686,7 +652,7 @@ bot.action("lang_amh", (ctx) => {
       [Markup.button.callback("ሕግና ሥርዓት", "cat_amh_law")],
       [Markup.button.callback("ታሪክና ድርሳናት", "sub_amh_hist")],
       [Markup.button.callback("ክርስቲያናዊ ሥነ ምግባር", "cat_amh_eth")],
-      [Markup.button.callback("የመጽሐፍ ቅዱስ ጥናት", "sub_amh_bible")],
+      [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_amh_bible")],
       [Markup.button.callback("ነገረ ሃይማኖት", "sub_amh_theology")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
     ])
@@ -729,7 +695,6 @@ bot.action("sub_amh_theology", (ctx) => {
   );
 });
 
-// ---- ENGLISH (with sub-menus) ----
 bot.action("lang_eng", (ctx) => {
   const userId = ctx.from.id;
   if (db.users[userId]) {
@@ -740,47 +705,11 @@ bot.action("lang_eng", (ctx) => {
     "Select category:",
     Markup.inlineKeyboard([
       [Markup.button.callback("Law & Order", "cat_eng_law")],
-      [Markup.button.callback("History & Discourse", "sub_eng_hist")],
+      [Markup.button.callback("History & Discourse", "cat_eng_hist")],
       [Markup.button.callback("Christian Ethics", "cat_eng_eth")],
-      [Markup.button.callback("Bible Study", "sub_eng_bible")],
-      [Markup.button.callback("Theology & Dogma", "sub_eng_theology")],
+      [Markup.button.callback("Bible Study", "cat_eng_ot")],
+      [Markup.button.callback("Theology & Dogma", "cat_eng_thl")],
       [Markup.button.callback("⬅️ Back", "back_to_lang")]
-    ])
-  );
-});
-
-bot.action("sub_eng_hist", (ctx) => {
-  ctx.editMessageText(
-    "Select category:",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("History", "cat_eng_hist")],
-      [Markup.button.callback("Discourse & Miracles", "cat_eng_gdsl")],
-      [Markup.button.callback("⬅️ Back", "lang_eng")]
-    ])
-  );
-});
-
-bot.action("sub_eng_bible", (ctx) => {
-  ctx.editMessageText(
-    "Select category:",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("Old Testament", "cat_eng_ot")],
-      [Markup.button.callback("New Testament", "cat_eng_nt")],
-      [Markup.button.callback("General Bible Study", "cat_eng_std")],
-      [Markup.button.callback("⬅️ Back", "lang_eng")]
-    ])
-  );
-});
-
-bot.action("sub_eng_theology", (ctx) => {
-  ctx.editMessageText(
-    "Select category:",
-    Markup.inlineKeyboard([
-      [Markup.button.callback("Christology", "cat_eng_chr")],
-      [Markup.button.callback("Mariology", "cat_eng_mry")],
-      [Markup.button.callback("Hagiography", "cat_eng_snt")],
-      [Markup.button.callback("Theology", "cat_eng_thl")],
-      [Markup.button.callback("⬅️ Back", "lang_eng")]
     ])
   );
 });
@@ -981,7 +910,7 @@ bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
 });
 
 // ==========================================
-// 22. TEXT HANDLER – with guard for step='file' and /done fix
+// 22. TEXT HANDLER (Search & Add Book) – FIXED! /done now works
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -989,17 +918,15 @@ bot.on('text', async (ctx) => {
   console.log(`📝 Message from ${userId}: "${text}"`);
   logActivity(userId, 'text_received', { text: text });
 
-  // ---- ADD-BOOK FLOW ----
+  // ✅ FIRST: Check if user is in add book session (This fixes /done)
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
-
-    // Cancel
+    
     if (text === '/canceladd') {
       delete addBookSessions[userId];
       return ctx.reply("❌ ተሰርዟል።");
     }
-
-    // Step: title
+    
     if (session.step === 'title') {
       session.title = text.trim();
       session.step = 'preview';
@@ -1009,9 +936,9 @@ bot.on('text', async (ctx) => {
         { parse_mode: 'Markdown' }
       );
     }
-
-    // Step: preview
+    
     if (session.step === 'preview') {
+      // ✅ /done is now properly handled before being skipped
       if (text === '/done') {
         if (!session.preview || session.preview.trim().length < 10) {
           return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
@@ -1033,28 +960,23 @@ bot.on('text', async (ctx) => {
           Markup.inlineKeyboard(categoryButtons)
         );
       }
-      // Append preview
+      
+      // Append preview text
       if (!session.preview) session.preview = text;
       else session.preview += '\n\n' + text;
       const wordCount = session.preview.split(' ').length;
       return ctx.reply(`📄 Updated! (${wordCount} words) Type /done when finished.`);
     }
-
-    // ---- GUARD: if step === 'file', ignore all text messages ----
-    if (session.step === 'file') {
-      return ctx.reply("📤 Please send the book file (PDF, photo, video, etc.) to complete.");
-    }
-
-    // Fallback
-    delete addBookSessions[userId];
-    return ctx.reply("❌ Add‑book session corrupted. Please start again with /addbook");
+    
+    // If step === 'file', it will be handled by the file handler
+    return;
   }
 
-  // ---- SKIP COMMANDS & BUTTON TEXTS ----
+  // ✅ Now skip other commands (but /done already handled above)
   if (text.startsWith('/')) return;
-  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 አግኙኝ', '💬 አስተያየት', '📊 ስታቲስቲክስ', '🔄 ዳግም ጀምር'].includes(text)) return;
+  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text)) return;
 
-  // ---- SEARCH ----
+  // Search books
   const query = text.trim().toLowerCase();
   let matches = [];
   Object.keys(booksDatabase).forEach(catKey => {
@@ -1074,7 +996,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 23. FILE HANDLER – NO DELETION, RECEIPT VALIDATION
+// 23. FILE HANDLER
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1107,7 +1029,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
   const message = ctx.message;
   if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
 
-  // ---- ADD BOOK: step === 'file' ----
+  // Check if part of add book session (step === 'file')
   if (addBookSessions[userId] && addBookSessions[userId].step === 'file') {
     const session = addBookSessions[userId];
     const fileInfo = extractFileInfo(message);
@@ -1134,7 +1056,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
     return;
   }
 
-  // ---- ADMIN: get file ID ----
+  // Admin: Get File ID
   if (isAdmin(userId)) {
     const fileInfo = extractFileInfo(message);
     if (fileInfo) {
@@ -1146,22 +1068,23 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
     return ctx.reply("⚠️ የፋይሉ መረጃ አልተገኘም።");
   }
 
-  // ---- PAID USER: no deletion ----
+  // Non-admin: Receipt validation
   if (isPaidUser(userId)) {
-    return ctx.reply("✅ ክፍያ ፈጽመዋል። ፋይልዎ ተቀብለናል።");
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("✅ ክፍያ ፈጽመዋል።");
   }
 
-  // ---- NON-PAID: RECEIPT VALIDATION ----
   const fileInfo = extractFileInfo(message);
   if (!fileInfo) {
+    try { await ctx.deleteMessage(); } catch (err) {}
     return ctx.reply("⚠️ ትክክለኛ ሪሲት ይላኩ።");
   }
 
   const caption = message.caption || "";
   const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
   if (!validation.isValid) {
-    // NO DELETION – just reply
-    return ctx.reply(`❌ ይህ የባንክ ሪሲት አይደለም: ${validation.reasons}`);
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("❌ ይህ የባንክ ሪሲት አይደለም!");
   }
 
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
@@ -1183,7 +1106,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
 });
 
 // ==========================================
-// 24. LAUNCH
+// 24. LAUNCH WITH RETRY ON CONFLICT
 // ==========================================
 async function launchBot() {
   try {
