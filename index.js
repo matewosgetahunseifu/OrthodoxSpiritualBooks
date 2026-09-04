@@ -7,7 +7,7 @@ const path = require('path');
 // 1. CONFIGURATION & CONSTANTS
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
-const ADMIN_IDS = [7480368503]; // Add multiple admin IDs here
+const ADMIN_IDS = [7480368503];
 const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
 const PORT = process.env.PORT || 3000;
 const RATE_LIMIT = 30;
@@ -527,8 +527,6 @@ bot.hears('📊 My Stats', (ctx) => {
 bot.hears('📞 Contact Me', (ctx) => ctx.reply(`📞 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
 bot.hears('💬 Feedback', (ctx) => ctx.reply(`💬 ${ADMIN_USERNAME}\n📧 matewosgetahunseifu@gmail.com`));
 bot.hears('🔄 Start', (ctx) => ctx.reply("እንኳን ደህና መጡ!", mainKeyboard));
-
-// Handle "start" (case-insensitive) typed by user
 bot.hears(/^start$/i, (ctx) => {
   ctx.reply("👋 እንኳን ደህና መጡ! እባክዎትን ከስር ያሉትን ቁልፎች ይጫኑ:", mainKeyboard);
 });
@@ -562,7 +560,7 @@ bot.command('canceladd', (ctx) => {
 });
 
 // ==========================================
-// 13. CATEGORY ROUTING (All Languages)
+// 13. CATEGORY ROUTING
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   const userId = ctx.from.id;
@@ -912,7 +910,7 @@ bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
 });
 
 // ==========================================
-// 22. TEXT HANDLER (Search & Add Book) – MUST BE AFTER bot.hears()
+// 22. TEXT HANDLER (Search & Add Book) – FIXED! /done now works
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -920,17 +918,15 @@ bot.on('text', async (ctx) => {
   console.log(`📝 Message from ${userId}: "${text}"`);
   logActivity(userId, 'text_received', { text: text });
 
-  // Skip commands and button texts (already handled)
-  if (text.startsWith('/')) return;
-  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text)) return;
-
-  // Handle add book session
+  // ✅ FIRST: Check if user is in add book session (This fixes /done)
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
+    
     if (text === '/canceladd') {
       delete addBookSessions[userId];
       return ctx.reply("❌ ተሰርዟል።");
     }
+    
     if (session.step === 'title') {
       session.title = text.trim();
       session.step = 'preview';
@@ -940,10 +936,12 @@ bot.on('text', async (ctx) => {
         { parse_mode: 'Markdown' }
       );
     }
+    
     if (session.step === 'preview') {
+      // ✅ /done is now properly handled before being skipped
       if (text === '/done') {
         if (!session.preview || session.preview.trim().length < 10) {
-          return ctx.reply("⚠️ Preview too short!");
+          return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
         }
         session.step = 'category';
         const categoryButtons = [];
@@ -962,13 +960,21 @@ bot.on('text', async (ctx) => {
           Markup.inlineKeyboard(categoryButtons)
         );
       }
+      
+      // Append preview text
       if (!session.preview) session.preview = text;
       else session.preview += '\n\n' + text;
       const wordCount = session.preview.split(' ').length;
       return ctx.reply(`📄 Updated! (${wordCount} words) Type /done when finished.`);
     }
-    // if step === 'file' – handled by file handler
+    
+    // If step === 'file', it will be handled by the file handler
+    return;
   }
+
+  // ✅ Now skip other commands (but /done already handled above)
+  if (text.startsWith('/')) return;
+  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text)) return;
 
   // Search books
   const query = text.trim().toLowerCase();
