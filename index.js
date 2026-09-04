@@ -399,9 +399,16 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 15;
     reasons.push(`Found ${keywordMatches} receipt keyword`);
   }
-  if (fileType === 'photo' || fileType === 'document') {
+  // Give more weight to photos (common for receipts)
+  if (fileType === 'photo') {
+    confidence += 25;
+    reasons.push(`File is a photo (likely receipt)`);
+  } else if (fileType === 'document') {
     confidence += 15;
-    reasons.push(`File type is ${fileType}`);
+    reasons.push(`File type is document`);
+  } else {
+    confidence += 5;
+    reasons.push(`Other file type`);
   }
   if (textToCheck.includes('0100775011101') || textToCheck.includes('1000661046841') || 
       textToCheck.includes('57080698') || textToCheck.includes('0943910036')) {
@@ -742,7 +749,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 15. BOOK SELECTION
+// 15. BOOK SELECTION (FIXED PREVIEW BEHAVIOR)
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const userId = ctx.from.id;
@@ -752,17 +759,20 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   if (!book) return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
 
   if (!isPaidUser(userId)) {
+    // Show only book title and a button to preview, no automatic preview.
     return ctx.reply(
-      `📖 **${book.title}**\n\n📄 **Preview (${PREVIEW_PAGES} pages):**\n${book.preview || 'Preview not available'}\n\n━━━━━━━━━━━━━━━━━━━━━\n📚 **የኦርቶዶክስ መንፈሳዊ መጽሐፍት**\n\nሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም **200 ብር** አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\n📸 ክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።\n━━━━━━━━━━━━━━━━━━━━━`,
+      `📖 **${book.title}**\n\n🔒 This book requires a one‑time payment of **200 ETB** to unlock all books.\n\n📸 Please send a bank receipt to this bot.\n\n👁 You can preview the first ${PREVIEW_PAGES} pages by clicking the button below.`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback("👁 More Preview", `preview_${catKey}_${bookId}`)]
+          [Markup.button.callback("👁 View Preview", `preview_${catKey}_${bookId}`)],
+          [Markup.button.callback("📖 Buy & Read Full Book", `gb_${catKey}_${bookId}`)]
         ])
       }
     );
   }
 
+  // Paid user: send the document
   ctx.replyWithDocument(book.file_id, {
     caption: `📖 ${book.title}\n\nመልካም ንባብ! 📚✨`,
     protect_content: true
@@ -780,7 +790,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 16. PREVIEW HANDLER
+// 16. PREVIEW HANDLER (displays preview on demand)
 // ==========================================
 bot.action(/^preview_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -865,12 +875,23 @@ bot.command('stats', (ctx) => {
   );
 });
 
-bot.command('backup', (ctx) => {
+bot.command('backup', async (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
-  ctx.replyWithDocument({
-    source: Buffer.from(JSON.stringify(db, null, 2), 'utf-8'),
-    filename: `backup_${Date.now()}.json`
-  }, { caption: "📦 Database Backup" });
+  try {
+    // Ensure database is saved first
+    saveDatabase();
+    const backupData = JSON.stringify(db, null, 2);
+    if (!backupData || backupData === '{}') {
+      return ctx.reply('⚠️ Database is empty or corrupted.');
+    }
+    await ctx.replyWithDocument({
+      source: Buffer.from(backupData, 'utf-8'),
+      filename: `backup_${Date.now()}.json`
+    }, { caption: "📦 Database Backup" });
+  } catch (err) {
+    console.error('Backup error:', err);
+    ctx.reply('❌ Failed to generate backup. Check logs.');
+  }
 });
 
 bot.command('categories', (ctx) => {
@@ -910,7 +931,7 @@ bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
 });
 
 // ==========================================
-// 22. TEXT HANDLER (Search & Add Book) – FIXED! /done now works
+// 22. TEXT HANDLER (Search & Add Book)
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -918,7 +939,7 @@ bot.on('text', async (ctx) => {
   console.log(`📝 Message from ${userId}: "${text}"`);
   logActivity(userId, 'text_received', { text: text });
 
-  // ✅ FIRST: Check if user is in add book session (This fixes /done)
+  // Check if user is in add book session
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
     
@@ -938,7 +959,6 @@ bot.on('text', async (ctx) => {
     }
     
     if (session.step === 'preview') {
-      // ✅ /done is now properly handled before being skipped
       if (text === '/done') {
         if (!session.preview || session.preview.trim().length < 10) {
           return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
@@ -972,7 +992,7 @@ bot.on('text', async (ctx) => {
     return;
   }
 
-  // ✅ Now skip other commands (but /done already handled above)
+  // Skip other commands and button labels
   if (text.startsWith('/')) return;
   if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text)) return;
 
@@ -996,7 +1016,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 23. FILE HANDLER
+// 23. FILE HANDLER (with photo fix)
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1089,6 +1109,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
 
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
   try {
+    // Try to forward first
     const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
     db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: validation.confidence };
     saveDatabase();
@@ -1099,9 +1120,31 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
       );
     }
     ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
-  } catch (error) {
-    console.error(error);
-    ctx.reply("⚠️ Error processing receipt.");
+  } catch (forwardError) {
+    // Fallback: send photo directly to admin if forwarding fails (e.g., private chat or size limit)
+    console.log('Forward failed, sending photo directly:', forwardError.message);
+    try {
+      // Send the photo directly with caption
+      await ctx.telegram.sendPhoto(ADMIN_IDS[0], fileInfo.fileId, {
+        caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
+        parse_mode: 'Markdown'
+      });
+      // Store pending with a dummy key (use unique string)
+      const dummyId = `direct_${orderNumber}`;
+      db.pendingReceipts[dummyId] = { userId, orderNumber, confidence: validation.confidence };
+      saveDatabase();
+      // Send admin approval buttons separately
+      for (const adminId of ADMIN_IDS) {
+        await ctx.telegram.sendMessage(adminId,
+          `🧾 ${orderNumber}\n👤 ${userId}`,
+          Markup.inlineKeyboard([[Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`), Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]])
+        );
+      }
+      ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
+    } catch (directError) {
+      console.error('Direct send failed:', directError);
+      ctx.reply("⚠️ Error processing receipt. Please try again or contact admin.");
+    }
   }
 });
 
