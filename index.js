@@ -385,7 +385,7 @@ function getUserStats(userId) {
 }
 
 // ==========================================
-// 7. RECEIPT VALIDATION – requires recipient or account
+// 7. RECEIPT VALIDATION (no longer used but kept for reference)
 // ==========================================
 const RECEIPT_KEYWORDS = [
   "receipt", "payment", "deposit", "transfer", "transaction",
@@ -399,69 +399,9 @@ const RECEIPT_KEYWORDS = [
 ];
 
 function validateBankReceipt(caption, fileName, fileType) {
-  let confidence = 0;
-  let reasons = [];
-  const textToCheck = (caption + " " + fileName).toLowerCase();
-  
-  // ---- MANDATORY: recipient name or account number ----
-  const hasRecipient = textToCheck.includes('matewos getahun seifu') || 
-                       textToCheck.includes('ማቴዎስ ጌታሁን ሰይፉ') ||
-                       textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ');
-  const hasAccount = textToCheck.includes('0100775011101') || 
-                     textToCheck.includes('1000661046841') ||
-                     textToCheck.includes('57080698') || 
-                     textToCheck.includes('0943910036');
-  
-  if (!hasRecipient && !hasAccount) {
-    return { isValid: false, confidence: 0, reasons: 'Missing recipient name or account number' };
-  }
-  
-  // ---- Continue with scoring ----
-  let keywordMatches = 0;
-  for (const keyword of RECEIPT_KEYWORDS) {
-    if (textToCheck.includes(keyword.toLowerCase())) {
-      keywordMatches++;
-    }
-  }
-  if (keywordMatches >= 3) {
-    confidence += 50;
-    reasons.push(`Found ${keywordMatches} receipt keywords`);
-  } else if (keywordMatches >= 2) {
-    confidence += 30;
-    reasons.push(`Found ${keywordMatches} receipt keywords`);
-  } else if (keywordMatches >= 1) {
-    confidence += 15;
-    reasons.push(`Found ${keywordMatches} receipt keyword`);
-  }
-  if (fileType === 'photo' || fileType === 'document') {
-    confidence += 15;
-    reasons.push(`File type is ${fileType}`);
-  }
-  if (hasAccount) {
-    confidence += 30;
-    reasons.push('Contains bank account number');
-  }
-  if (hasRecipient) {
-    confidence += 20;
-    reasons.push('Contains recipient name');
-  }
-  const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
-  const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
-  if (hasDatePattern) {
-    confidence += 5;
-    reasons.push('Contains date pattern');
-  }
-  if (hasAmountPattern) {
-    confidence += 5;
-    reasons.push('Contains amount pattern');
-  }
-  // Lower threshold because mandatory check already passed
-  const isValid = confidence >= 30;
-  return {
-    isValid,
-    confidence,
-    reasons: reasons.join(', ')
-  };
+  // This function is no longer used – all files are forwarded for manual review.
+  // Kept for reference only.
+  return { isValid: true, confidence: 100, reasons: 'Manual review only' };
 }
 
 // ==========================================
@@ -1164,7 +1104,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 23. FILE HANDLER – NO DELETION, RECEIPT VALIDATION, FALLBACK
+// 23. FILE HANDLER – ALL FILES FORWARDED FOR MANUAL REVIEW
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1236,74 +1176,73 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
     return ctx.reply("⚠️ የፋይሉ መረጃ አልተገኘም።");
   }
 
-  // ---- PAID USER: no deletion ----
+  // ---- PAID USER: no need to forward, just acknowledge ----
   if (isPaidUser(userId)) {
     return ctx.reply("✅ ክፍያ ፈጽመዋል። ፋይልዎ ተቀብለናል።");
   }
 
-  // ---- NON-PAID: RECEIPT VALIDATION ----
+  // ---- NON-PAID: FORWARD EVERY FILE TO ADMIN FOR MANUAL REVIEW ----
   const fileInfo = extractFileInfo(message);
   if (!fileInfo) {
-    return ctx.reply("⚠️ ትክክለኛ ሪሲት ይላኩ።");
-  }
-
-  const caption = message.caption || "";
-  const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
-  if (!validation.isValid) {
-    // NO DELETION – just reply
-    return ctx.reply(`❌ ይህ የባንክ ሪሲት አይደለም: ${validation.reasons}`);
+    return ctx.reply("⚠️ የፋይሉ መረጃ አልተገኘም። እባክዎትን እንደገና ይሞክሩ።");
   }
 
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
-  const forwardSuccess = async (fileId) => {
+
+  try {
+    // ---- Try to forward the file to admin ----
+    const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
+    db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: 100 }; // 100 = manual
+    saveDatabase();
+
+    // ---- Notify admin with Approve/Reject buttons ----
+    for (const adminId of ADMIN_IDS) {
+      await ctx.telegram.sendMessage(adminId,
+        `📥 **New Receipt (for manual review)**\n\n🧾 ${orderNumber}\n👤 ${userId}\n📁 ${fileInfo.fileName}\n📂 ${fileInfo.type}`,
+        {
+          parse_mode: 'Markdown',
+          ...Markup.inlineKeyboard([
+            [Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`)],
+            [Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]
+          ])
+        }
+      );
+    }
+
+    ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will review it manually shortly.`);
+  } catch (error) {
+    console.error('Forward failed:', error);
+    // ---- FALLBACK: send file directly ----
     try {
-      const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
-      db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: validation.confidence };
+      if (fileInfo.type === 'photo') {
+        await ctx.telegram.sendPhoto(ADMIN_IDS[0], fileInfo.fileId, {
+          caption: `📥 **New Receipt (direct)**\n🧾 ${orderNumber}\n👤 ${userId}\n📁 ${fileInfo.fileName}`,
+          parse_mode: 'Markdown'
+        });
+      } else {
+        await ctx.telegram.sendDocument(ADMIN_IDS[0], fileInfo.fileId, {
+          caption: `📥 **New Receipt (direct)**\n🧾 ${orderNumber}\n👤 ${userId}\n📁 ${fileInfo.fileName}`,
+          parse_mode: 'Markdown'
+        });
+      }
+      const dummyId = `direct_${orderNumber}`;
+      db.pendingReceipts[dummyId] = { userId, orderNumber, confidence: 100 };
       saveDatabase();
       for (const adminId of ADMIN_IDS) {
         await ctx.telegram.sendMessage(adminId,
-          `📥 **New Receipt**\n\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
-          { parse_mode: 'Markdown', ...Markup.inlineKeyboard([[Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`), Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]]) }
+          `🧾 ${orderNumber} (direct)\n👤 ${userId}`,
+          Markup.inlineKeyboard([
+            [Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`)],
+            [Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]
+          ])
         );
       }
-      ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
-    } catch (forwardError) {
-      console.log('Forward failed, sending directly:', forwardError.message);
-      // ---- FALLBACK: send the file directly ----
-      try {
-        // Determine the appropriate send method
-        if (fileInfo.type === 'photo') {
-          await ctx.telegram.sendPhoto(ADMIN_IDS[0], fileInfo.fileId, {
-            caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
-            parse_mode: 'Markdown'
-          });
-        } else if (fileInfo.type === 'document' || fileInfo.type === 'video' || fileInfo.type === 'audio') {
-          await ctx.telegram.sendDocument(ADMIN_IDS[0], fileInfo.fileId, {
-            caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
-            parse_mode: 'Markdown'
-          });
-        } else {
-          // For other types, try forwarding again
-          await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
-        }
-        // Store pending receipt with a dummy ID
-        const dummyId = `direct_${orderNumber}`;
-        db.pendingReceipts[dummyId] = { userId, orderNumber, confidence: validation.confidence };
-        saveDatabase();
-        for (const adminId of ADMIN_IDS) {
-          await ctx.telegram.sendMessage(adminId,
-            `🧾 ${orderNumber} (direct)\n👤 ${userId}`,
-            Markup.inlineKeyboard([[Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`), Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]])
-          );
-        }
-        ctx.reply(`✅ Receipt received (direct) 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
-      } catch (directError) {
-        console.error('Direct send failed:', directError);
-        ctx.reply("⚠️ Error processing receipt. Please try again or contact admin.");
-      }
+      ctx.reply(`✅ Receipt received (direct) 🧾 ${orderNumber}\n\nAdmin will review it manually.`);
+    } catch (directError) {
+      console.error('Direct send failed:', directError);
+      ctx.reply("⚠️ Error processing receipt. Please try again or contact admin directly.");
     }
-  };
-  forwardSuccess(fileInfo.fileId);
+  }
 });
 
 // ==========================================
