@@ -1,2 +1,20 @@
+# Node modules
 node_modules/
+
+# Environment variables
 .env
+
+# Database files (user data)
+database.json
+
+# Log files
+*.log
+error.log
+activity.log
+
+# Backup files
+*.backup
+
+# OS files
+.DS_Store
+Thumbs.db

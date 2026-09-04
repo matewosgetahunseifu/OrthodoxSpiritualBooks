@@ -7,7 +7,7 @@ const path = require('path');
 // 1. CONFIGURATION & CONSTANTS
 // ==========================================
 const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
-const ADMIN_IDS = [7480368503];
+const ADMIN_IDS = [7480368503]; // Add multiple admin IDs here
 const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
 const PORT = process.env.PORT || 3000;
 const RATE_LIMIT = 30;
@@ -84,7 +84,7 @@ let db = loadDatabase();
 const addBookSessions = {};
 
 // ==========================================
-// 5. BOOKS DATABASE (Complete - Same as before)
+// 5. BOOKS DATABASE (Complete)
 // ==========================================
 const booksDatabase = {
   "geez_law": [
@@ -337,22 +337,17 @@ function findBook(catKey, bookId) {
 
 function trackDownload(userId, catKey, bookId) {
   if (!db.users[userId]) return;
-  
   db.users[userId].total_downloads = (db.users[userId].total_downloads || 0) + 1;
-  
   if (!db.users[userId].books_downloaded) {
     db.users[userId].books_downloaded = [];
   }
-  
   const bookKey = `${catKey}_${bookId}`;
   if (!db.users[userId].books_downloaded.includes(bookKey)) {
     db.users[userId].books_downloaded.push(bookKey);
   }
-  
   if (!db.bookStats) db.bookStats = {};
   if (!db.bookStats[bookKey]) db.bookStats[bookKey] = 0;
   db.bookStats[bookKey]++;
-  
   saveDatabase();
   logActivity(userId, 'download_book', { catKey, bookId });
 }
@@ -360,7 +355,6 @@ function trackDownload(userId, catKey, bookId) {
 function getUserStats(userId) {
   const user = db.users[userId];
   if (!user) return null;
-  
   return {
     username: user.username,
     is_paid: user.is_paid,
@@ -388,16 +382,13 @@ const RECEIPT_KEYWORDS = [
 function validateBankReceipt(caption, fileName, fileType) {
   let confidence = 0;
   let reasons = [];
-  
   const textToCheck = (caption + " " + fileName).toLowerCase();
   let keywordMatches = 0;
-  
   for (const keyword of RECEIPT_KEYWORDS) {
     if (textToCheck.includes(keyword.toLowerCase())) {
       keywordMatches++;
     }
   }
-  
   if (keywordMatches >= 3) {
     confidence += 50;
     reasons.push(`Found ${keywordMatches} receipt keywords`);
@@ -408,26 +399,21 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 15;
     reasons.push(`Found ${keywordMatches} receipt keyword`);
   }
-  
   if (fileType === 'photo' || fileType === 'document') {
     confidence += 15;
     reasons.push(`File type is ${fileType}`);
   }
-  
   if (textToCheck.includes('0100775011101') || textToCheck.includes('1000661046841') || 
       textToCheck.includes('57080698') || textToCheck.includes('0943910036')) {
     confidence += 30;
     reasons.push(`Contains bank account number`);
   }
-  
   if (textToCheck.includes('matewos') || textToCheck.includes('ማቴዎስ')) {
     confidence += 15;
     reasons.push(`Contains recipient name`);
   }
-  
   const hasDatePattern = /\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}/.test(textToCheck);
   const hasAmountPattern = /\d{1,3}(,\d{3})*(\.\d{2})?/.test(textToCheck);
-  
   if (hasDatePattern) {
     confidence += 5;
     reasons.push(`Contains date pattern`);
@@ -436,11 +422,8 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 5;
     reasons.push(`Contains amount pattern`);
   }
-  
-  const isValid = confidence >= 40;
-  
   return {
-    isValid,
+    isValid: confidence >= 40,
     confidence,
     reasons: reasons.join(', ')
   };
@@ -511,21 +494,12 @@ bot.command('addbook', (ctx) => {
   if (!isAdmin(userId)) {
     return ctx.reply("⛔ ይህ ትዕዛዝ ለአድሚን ብቻ ነው!");
   }
-  
   if (addBookSessions[userId]) {
-    return ctx.reply(
-      "⚠️ አሁን መጽሐፍ እየጨመሩ ነው!\n" +
-      "እባክዎትን መጀመሪያ ያለውን ይጨርሱ ወይም /canceladd ይጠቀሙ።"
-    );
+    return ctx.reply("⚠️ አሁን መጽሐፍ እየጨመሩ ነው!\nእባክዎትን መጀመሪያ ያለውን ይጨርሱ ወይም /canceladd ይጠቀሙ።");
   }
-  
   addBookSessions[userId] = { step: 'title' };
-  
   ctx.reply(
-    `📚 **Add a New Book**\n\n` +
-    `**Step 1: Enter Book Title**\n\n` +
-    `✏️ Please type the full title of the book:\n` +
-    `Example: \`ድርሳነ ሚካኤል ብራና\``,
+    `📚 **Add a New Book**\n\n**Step 1: Enter Book Title**\n\n✏️ Please type the full title of the book:\nExample: \`ድርሳነ ሚካኤል ብራና\``,
     { parse_mode: 'Markdown' }
   );
 });
@@ -533,48 +507,41 @@ bot.command('addbook', (ctx) => {
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
-  
-  // 🔍 DEBUG: Log every message
   console.log(`📝 Message from ${userId}: "${text}"`);
   logActivity(userId, 'text_received', { text: text });
-  
-  // Skip if it's a button command or starts with /
+
+  // Handle "Start" in any form
+  if (/start/i.test(text) && !text.includes('/')) {
+    return ctx.reply("👋 እንኳን ደህና መጡ! እባክዎትን ከስር ያሉትን ቁልፎች ይጫኑ:", mainKeyboard);
+  }
+
+  // Skip button commands and commands
   if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 Contact Me', '💬 Feedback', '📊 My Stats', '🔄 Start'].includes(text) || text.startsWith('/')) {
     return;
   }
-  
-  // Check if user is in add book session
+
+  // Add book session handling
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
-    
     if (text === '/canceladd') {
       delete addBookSessions[userId];
       return ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።");
     }
-    
     if (session.step === 'title') {
       session.title = text.trim();
       session.step = 'preview';
       session.preview = '';
-      
       return ctx.reply(
-        `✅ Title: \`${session.title}\`\n\n` +
-        `📄 **Step 2: Enter Preview Text**\n\n` +
-        `✏️ Please type the preview text (first 20-25 pages or a summary):\n` +
-        `📌 When done, type \`/done\` to finish preview.`,
+        `✅ Title: \`${session.title}\`\n\n📄 **Step 2: Enter Preview Text**\n\n✏️ Please type the preview text (first 20-25 pages or a summary):\n📌 When done, type \`/done\` to finish preview.`,
         { parse_mode: 'Markdown' }
       );
     }
-    
     if (session.step === 'preview') {
       if (text === '/done') {
         if (!session.preview || session.preview.trim().length < 10) {
           return ctx.reply("⚠️ Preview is too short! Please write at least 10 characters.");
         }
-        
         session.step = 'category';
-        
-        // Show categories as buttons
         const categoryButtons = [];
         const categories = Object.keys(booksDatabase);
         for (let i = 0; i < categories.length; i += 2) {
@@ -586,34 +553,27 @@ bot.on('text', async (ctx) => {
           categoryButtons.push(row);
         }
         categoryButtons.push([Markup.button.callback("❌ Cancel", "cancel_add_book")]);
-        
         return ctx.reply(
-          `✅ Preview saved: ${session.preview.substring(0, 50)}...\n\n` +
-          `📂 **Step 3: Select Category**\n\n` +
-          `Please choose a category from the buttons below:`,
+          `✅ Preview saved: ${session.preview.substring(0, 50)}...\n\n📂 **Step 3: Select Category**\n\nPlease choose a category from the buttons below:`,
           Markup.inlineKeyboard(categoryButtons)
         );
       }
-      
       if (!session.preview) {
         session.preview = text;
       } else {
         session.preview += '\n\n' + text;
       }
-      
       const wordCount = session.preview.split(' ').length;
       return ctx.reply(
-        `📄 Preview updated! (${wordCount} words so far)\n\n` +
-        `✏️ Continue typing or type \`/done\` when finished.`,
+        `📄 Preview updated! (${wordCount} words so far)\n\n✏️ Continue typing or type \`/done\` when finished.`,
         { parse_mode: 'Markdown' }
       );
     }
   }
-  
-  // Handle search
+
+  // Search
   const query = text.trim().toLowerCase();
   let matches = [];
-  
   Object.keys(booksDatabase).forEach(catKey => {
     booksDatabase[catKey].forEach(book => {
       if (book.title.toLowerCase().includes(query)) {
@@ -621,35 +581,26 @@ bot.on('text', async (ctx) => {
       }
     });
   });
-  
   if (matches.length === 0) {
     return ctx.reply(`🔍 ምንም መጽሐፍ አልተገኘም "${text}"\n\n💡 እባክዎትን የቃሉን አጻጻፍ አስተካክለው ይሞክሩ።`);
   }
-  
   const buttons = matches.slice(0, 20).map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.catKey}_${book.id}`)
   ]);
-  
-  ctx.reply(
-    `🔍 ውጤቶች (${matches.length} ተገኝተዋል)፦`,
-    Markup.inlineKeyboard(buttons)
-  );
-  
+  ctx.reply(`🔍 ውጤቶች (${matches.length} ተገኝተዋል)፦`, Markup.inlineKeyboard(buttons));
   logActivity(userId, 'search', { query, results: matches.length });
 });
 
 // ==========================================
-// 12. CATEGORY ROUTING (All languages - Complete)
+// 12. CATEGORY ROUTING
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   const userId = ctx.from.id;
   console.log(`🔄 Language selected: Ge'ez by user ${userId}`);
-  
   if (db.users[userId]) {
     db.users[userId].preferred_language = "geez";
     saveDatabase();
   }
-  
   ctx.editMessageText(
     "በግዕዝ ቋንቋ የትኛውን የመጽሐፍ ምድብ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
@@ -689,7 +640,6 @@ bot.action("lang_ga", (ctx) => {
     db.users[userId].preferred_language = "geez_amharic";
     saveDatabase();
   }
-  
   ctx.editMessageText(
     "በግዕዝ አማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
     Markup.inlineKeyboard([
@@ -729,7 +679,6 @@ bot.action("lang_amh", (ctx) => {
     db.users[userId].preferred_language = "amharic";
     saveDatabase();
   }
-  
   ctx.editMessageText(
     "በአማርኛ ቋንቋ ማንበብ የሚፈልጉትን የመጽሐፍ ምድብ ይምረጡ",
     Markup.inlineKeyboard([
@@ -785,7 +734,6 @@ bot.action("lang_eng", (ctx) => {
     db.users[userId].preferred_language = "english";
     saveDatabase();
   }
-  
   ctx.editMessageText(
     "Please select a category in English:",
     Markup.inlineKeyboard([
@@ -803,17 +751,9 @@ bot.action("back_to_lang", (ctx) => {
   ctx.editMessageText(
     "እባኮን በምን ቋንቋ መጽሐፍ ማንበብ ይፈልጋሉ?",
     Markup.inlineKeyboard([
-      [
-        Markup.button.callback("በግዕዝ", "lang_geez"),
-        Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")
-      ],
-      [
-        Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")
-      ],
-      [
-        Markup.button.callback("በአማርኛ", "lang_amh"),
-        Markup.button.callback("In English", "lang_eng")
-      ]
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
     ])
   );
 });
@@ -824,49 +764,30 @@ bot.action("back_to_lang", (ctx) => {
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
   const books = booksDatabase[catKey];
-  
   if (!books || books.length === 0) {
     return ctx.answerCbQuery("በዚህ ምድብ ምንም መጽሐፍ አልተገኘም።", { show_alert: true });
   }
-  
   const buttons = books.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${catKey}_${book.id}`)
   ]);
-  
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
-  
   ctx.editMessageText("ማንበብ የሚፈልጉትን መጽሐፍ ይምረጡ፦", Markup.inlineKeyboard(buttons));
 });
 
 // ==========================================
-// 14. BOOK SELECTION
+// 14. BOOK SELECTION (FIXED)
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const userId = ctx.from.id;
   const catKey = ctx.match[1];
   const bookId = ctx.match[2];
-  
   const book = findBook(catKey, bookId);
-  
   if (!book) {
     return ctx.answerCbQuery("መጽሐፉ አልተገኘም።", { show_alert: true });
   }
-  
   if (!isPaidUser(userId)) {
     return ctx.reply(
-      `📖 **${book.title}**\n\n` +
-      `📄 **Preview (${PREVIEW_PAGES} pages):**\n${book.preview || 'Preview not available'}\n\n` +
-      `━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📚 **የኦርቶዶክስ መንፈሳዊ መጽሐፍት**\n\n` +
-      `ሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም **200 ብር** አንድ ጊዜ ብቻ ይክፈሉ።\n\n` +
-      `💳 የክፍያ መንገዶች፦\n` +
-      `• አሐዱ ባንክ፦ 0100775011101\n` +
-      `• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n` +
-      `• አቢሲንያ ባንክ፦ 57080698\n` +
-      `• ቴሌብር (Telebirr)፦ 0943910036\n\n` +
-      `👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\n` +
-      `📸 ክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።\n` +
-      `━━━━━━━━━━━━━━━━━━━━━`,
+      `📖 **${book.title}**\n\n📄 **Preview (${PREVIEW_PAGES} pages):**\n${book.preview || 'Preview not available'}\n\n━━━━━━━━━━━━━━━━━━━━━\n📚 **የኦርቶዶክስ መንፈሳዊ መጽሐፍት**\n\nሁሉንም የመጽሐፍ ዓይነቶች ሙሉ በሙሉ ለመጠቀም **200 ብር** አንድ ጊዜ ብቻ ይክፈሉ።\n\n💳 የክፍያ መንገዶች፦\n• አሐዱ ባንክ፦ 0100775011101\n• የኢትዮጵያ ንግድ ባንክ (CBE)፦ 1000661046841\n• አቢሲንያ ባንክ፦ 57080698\n• ቴሌብር (Telebirr)፦ 0943910036\n\n👤 የአካውንት ስም፦ Matewos Getahun Seifu\n\n📸 ክፍያ እንደፈጸሙ የባንክ ሪሲት ወደዚህ ቦት ይላኩ።\n━━━━━━━━━━━━━━━━━━━━━`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
@@ -875,7 +796,6 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
       }
     );
   }
-  
   ctx.replyWithDocument(book.file_id, {
     caption: `📖 ${book.title}\n\nመልካም ንባብ! 📚✨`,
     protect_content: true
@@ -884,8 +804,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   }).catch((error) => {
     console.error('Error sending book:', error);
     ctx.reply(
-      `❌ የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ አልተገኘም)\n\n` +
-      `🔄 እባክዎትን እንደገና ይሞክሩ።`,
+      `❌ የመጽሐፉ ስም፦ ${book.title}\n(ፋይሉ አልተገኘም)\n\n🔄 እባክዎትን እንደገና ይሞክሩ።`,
       Markup.inlineKeyboard([
         [Markup.button.callback("🔄 Retry", `retry_${catKey}_${bookId}`)]
       ])
@@ -894,7 +813,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 15. ADMIN COMMANDS (Short versions)
+// 15. ADMIN COMMANDS
 // ==========================================
 bot.command('stats', (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
@@ -935,19 +854,154 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 17. LAUNCH
+// 17. SEARCH (Replaced by text handler, but keep hears for button)
 // ==========================================
-bot.catch((err, ctx) => {
-  console.error('❌ Error:', err);
-  logError('bot_catch', err);
+bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => ctx.reply("🔍 እባክዎን የመጽሐፍ ስም ያስገቡ፦"));
+
+// ==========================================
+// 18. FILE HANDLER
+// ==========================================
+function extractFileInfo(msg) {
+  if (msg.document) {
+    return { type: 'document', fileId: msg.document.file_id, fileName: msg.document.file_name || 'Document.pdf', mimeType: msg.document.mime_type || 'application/pdf', fileSize: msg.document.file_size || 0 };
+  }
+  if (msg.photo && msg.photo.length > 0) {
+    const photo = msg.photo[msg.photo.length - 1];
+    return { type: 'photo', fileId: photo.file_id, fileName: 'Photo.jpg', mimeType: 'image/jpeg', fileSize: photo.file_size || 0 };
+  }
+  if (msg.video) {
+    return { type: 'video', fileId: msg.video.file_id, fileName: msg.video.file_name || 'Video.mp4', mimeType: 'video/mp4', fileSize: msg.video.file_size || 0 };
+  }
+  if (msg.audio) {
+    return { type: 'audio', fileId: msg.audio.file_id, fileName: msg.audio.file_name || 'Audio.mp3', mimeType: 'audio/mpeg', fileSize: msg.audio.file_size || 0 };
+  }
+  if (msg.voice) {
+    return { type: 'voice', fileId: msg.voice.file_id, fileName: 'Voice.ogg', mimeType: 'audio/ogg', fileSize: msg.voice.file_size || 0 };
+  }
+  if (msg.animation) {
+    return { type: 'animation', fileId: msg.animation.file_id, fileName: 'Animation.gif', mimeType: 'image/gif', fileSize: msg.animation.file_size || 0 };
+  }
+  if (msg.sticker) {
+    return { type: 'sticker', fileId: msg.sticker.file_id, fileName: 'Sticker.webp', mimeType: 'image/webp', fileSize: msg.sticker.file_size || 0 };
+  }
+  return null;
+}
+
+bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'], async (ctx) => {
+  const userId = ctx.from.id;
+  const message = ctx.message;
+  if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+
+  // Admin: Get File ID
+  if (isAdmin(userId)) {
+    const fileInfo = extractFileInfo(message);
+    if (fileInfo) {
+      return ctx.reply(
+        `🔑 **File ID**\n\n📄 ${fileInfo.fileName}\n🆔 \`${fileInfo.fileId}\`\n📁 ${fileInfo.type}\n📦 ${(fileInfo.fileSize / 1024 / 1024).toFixed(2)} MB`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+    return ctx.reply("⚠️ የፋይሉ መረጃ አልተገኘም።");
+  }
+
+  // Non-admin: Receipt validation
+  if (isPaidUser(userId)) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("✅ ክፍያ ፈጽመዋል።");
+  }
+
+  const fileInfo = extractFileInfo(message);
+  if (!fileInfo) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("⚠️ ትክክለኛ ሪሲት ይላኩ።");
+  }
+
+  const caption = message.caption || "";
+  const validation = validateBankReceipt(caption, fileInfo.fileName, fileInfo.type);
+  if (!validation.isValid) {
+    try { await ctx.deleteMessage(); } catch (err) {}
+    return ctx.reply("❌ ይህ የባንክ ሪሲት አይደለም!");
+  }
+
+  const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
+  try {
+    const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
+    db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: validation.confidence };
+    saveDatabase();
+    for (const adminId of ADMIN_IDS) {
+      await ctx.telegram.sendMessage(adminId,
+        `📥 **New Receipt**\n\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
+        { parse_mode: 'Markdown', ...Markup.inlineKeyboard([[Markup.button.callback("✅ Approve", `approve_${userId}_${orderNumber}`), Markup.button.callback("❌ Reject", `reject_${userId}_${orderNumber}`)]]) }
+      );
+    }
+    ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
+  } catch (error) {
+    console.error(error);
+    ctx.reply("⚠️ Error processing receipt.");
+  }
 });
 
-bot.launch({ dropPendingUpdates: true }).then(() => {
-  console.log("✅ Bot is running...");
-  console.log("📚 Orthodox Spiritual Books Bot is ready!");
-  console.log("👑 Admin IDs:", ADMIN_IDS);
-  console.log(`📖 Total Books: ${Object.values(booksDatabase).reduce((s, c) => s + c.length, 0)}`);
-}).catch(err => console.error("❌ Failed to launch:", err));
+// ==========================================
+// 19. ADD CATEGORY BUTTON HANDLERS
+// ==========================================
+bot.action(/^addcat_(.+)$/, (ctx) => {
+  const userId = ctx.from.id;
+  const category = ctx.match[1];
+  if (!isAdmin(userId)) return ctx.answerCbQuery("⛔ Admin only!", { show_alert: true });
+  if (!addBookSessions[userId]) return ctx.answerCbQuery("⚠️ /addbook first!", { show_alert: true });
+  const session = addBookSessions[userId];
+  session.category = category;
+  session.step = 'file';
+  ctx.editMessageText(
+    `✅ Category: \`${category}\`\n\n📎 **Step 4: Send the Book File**\n\n📤 Please send the book file (PDF, photo, video, etc.) to complete.\n\n💡 This is the final step!`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.action('cancel_add_book', (ctx) => {
+  const userId = ctx.from.id;
+  if (addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  } else {
+    ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
+  }
+});
+
+bot.command('canceladd', (ctx) => {
+  const userId = ctx.from.id;
+  if (addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  } else {
+    ctx.reply("⚠️ ምንም እየተጨመረ ያለ መጽሐፍ የለም።");
+  }
+});
+
+// ==========================================
+// 20. LAUNCH WITH RETRY ON CONFLICT
+// ==========================================
+async function launchBot() {
+  try {
+    await bot.launch({
+      dropPendingUpdates: true
+    });
+    console.log("✅ Bot is running...");
+    console.log("📚 Orthodox Spiritual Books Bot is ready!");
+    console.log("👑 Admin IDs:", ADMIN_IDS);
+    console.log(`📖 Total Books: ${Object.values(booksDatabase).reduce((s, c) => s + c.length, 0)}`);
+  } catch (error) {
+    if (error.message && error.message.includes('409: Conflict')) {
+      console.log('⚠️ Conflict detected - another instance is running. Retrying in 5 seconds...');
+      setTimeout(launchBot, 5000);
+    } else {
+      console.error('❌ Failed to launch:', error);
+      logError('launch_failed', error);
+    }
+  }
+}
+
+launchBot();
 
 process.once('SIGINT', () => { saveDatabase(); bot.stop('SIGINT'); });
 process.once('SIGTERM', () => { saveDatabase(); bot.stop('SIGTERM'); });
