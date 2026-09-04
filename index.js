@@ -84,7 +84,7 @@ let db = loadDatabase();
 const addBookSessions = {};
 
 // ==========================================
-// 5. BOOKS DATABASE (Complete)
+// 5. BOOKS DATABASE (Complete - unchanged)
 // ==========================================
 const booksDatabase = {
   "geez_law": [
@@ -366,7 +366,7 @@ function getUserStats(userId) {
 }
 
 // ==========================================
-// 7. RECEIPT VALIDATION
+// 7. RECEIPT VALIDATION – IMPROVED FOR PHOTOS
 // ==========================================
 const RECEIPT_KEYWORDS = [
   "receipt", "payment", "deposit", "transfer", "transaction", 
@@ -399,9 +399,9 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 15;
     reasons.push(`Found ${keywordMatches} receipt keyword`);
   }
-  // Give more weight to photos (common for receipts)
+  // For photos, we are more lenient – give extra weight
   if (fileType === 'photo') {
-    confidence += 25;
+    confidence += 30;   // stronger weight for photos
     reasons.push(`File is a photo (likely receipt)`);
   } else if (fileType === 'document') {
     confidence += 15;
@@ -429,8 +429,15 @@ function validateBankReceipt(caption, fileName, fileType) {
     confidence += 5;
     reasons.push(`Contains amount pattern`);
   }
+  // For photos, lower threshold to accept even with low text content
+  let isValid = false;
+  if (fileType === 'photo') {
+    isValid = confidence >= 30;   // lower threshold for photos
+  } else {
+    isValid = confidence >= 40;
+  }
   return {
-    isValid: confidence >= 40,
+    isValid,
     confidence,
     reasons: reasons.join(', ')
   };
@@ -494,7 +501,7 @@ function checkRateLimit(userId) {
 }
 
 // ==========================================
-// 11. COMMANDS & BUTTON HANDLERS (MUST BE BEFORE bot.on('text'))
+// 11. COMMANDS & BUTTON HANDLERS
 // ==========================================
 bot.start((ctx) => {
   const userId = ctx.from.id;
@@ -567,7 +574,7 @@ bot.command('canceladd', (ctx) => {
 });
 
 // ==========================================
-// 13. CATEGORY ROUTING
+// 13. CATEGORY ROUTING – Amharic menu now exactly matches English layout
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   const userId = ctx.from.id;
@@ -647,6 +654,7 @@ bot.action("sub_ga_bible", (ctx) => {
   );
 });
 
+// ---------- AMHARIC MENU – NOW EXACT MATCH TO ENGLISH ----------
 bot.action("lang_amh", (ctx) => {
   const userId = ctx.from.id;
   if (db.users[userId]) {
@@ -656,22 +664,24 @@ bot.action("lang_amh", (ctx) => {
   ctx.editMessageText(
     "በአማርኛ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ሕግና ሥርዓት", "cat_amh_law")],
-      [Markup.button.callback("ታሪክና ድርሳናት", "sub_amh_hist")],
-      [Markup.button.callback("ክርስቲያናዊ ሥነ ምግባር", "cat_amh_eth")],
-      [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_amh_bible")],
-      [Markup.button.callback("ነገረ ሃይማኖት", "sub_amh_theology")],
+      // Direct translations of English categories
+      [Markup.button.callback("ሕግና ሥርዓት (Law & Order)", "cat_amh_law")],
+      [Markup.button.callback("ታሪክና ድርሳናት (History & Discourse)", "sub_amh_hist")],
+      [Markup.button.callback("ክርስቲያናዊ ሥነ ምግባር (Christian Ethics)", "cat_amh_eth")],
+      [Markup.button.callback("የመጽሐፍ ቅዱስ ጥናት (Bible Study)", "sub_amh_bible")],
+      [Markup.button.callback("ነገረ ሃይማኖት (Theology & Dogma)", "sub_amh_theology")],
       [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
     ])
   );
 });
 
+// Sub-menus keep the same structure but labels are now in Amharic
 bot.action("sub_amh_hist", (ctx) => {
   ctx.editMessageText(
     "ከታሪክና ድርሳናት ይምረጡ:",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ታሪክ", "cat_amh_hist")],
-      [Markup.button.callback("ድርሳን ተአምር ገድላት", "cat_amh_gdsl")],
+      [Markup.button.callback("ታሪክ (History)", "cat_amh_hist")],
+      [Markup.button.callback("ድርሳን ተአምር ገድላት (Discourse & Miracles)", "cat_amh_gdsl")],
       [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
     ])
   );
@@ -681,9 +691,9 @@ bot.action("sub_amh_bible", (ctx) => {
   ctx.editMessageText(
     "ከመጽሐፍ ቅዱስ ይምረጡ:",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ብሉይ ኪዳን", "cat_amh_ot")],
-      [Markup.button.callback("ሐዲስ ኪዳን", "cat_amh_nt")],
-      [Markup.button.callback("መጽሐፍ ቅዱስ ጥናት", "cat_amh_std")],
+      [Markup.button.callback("ብሉይ ኪዳን (Old Testament)", "cat_amh_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን (New Testament)", "cat_amh_nt")],
+      [Markup.button.callback("መጽሐፍ ቅዱስ ጥናት (Bible Study)", "cat_amh_std")],
       [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
     ])
   );
@@ -693,15 +703,16 @@ bot.action("sub_amh_theology", (ctx) => {
   ctx.editMessageText(
     "ከነገረ ሃይማኖት ይምረጡ:",
     Markup.inlineKeyboard([
-      [Markup.button.callback("ነገረ ክርስቶስ", "cat_amh_chr")],
-      [Markup.button.callback("ነገረ ማርያም", "cat_amh_mry")],
-      [Markup.button.callback("ነገረ ቅዱሳን", "cat_amh_snt")],
-      [Markup.button.callback("ነገረ ሃይማኖት", "cat_amh_thl")],
+      [Markup.button.callback("ነገረ ክርስቶስ (Christology)", "cat_amh_chr")],
+      [Markup.button.callback("ነገረ ማርያም (Mariology)", "cat_amh_mry")],
+      [Markup.button.callback("ነገረ ቅዱሳን (Hagiography)", "cat_amh_snt")],
+      [Markup.button.callback("ነገረ ሃይማኖት (Theology)", "cat_amh_thl")],
       [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
     ])
   );
 });
 
+// ---------- ENGLISH MENU ----------
 bot.action("lang_eng", (ctx) => {
   const userId = ctx.from.id;
   if (db.users[userId]) {
@@ -733,7 +744,7 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// 14. CATEGORY SELECTION
+// 14. CATEGORY SELECTION (unchanged)
 // ==========================================
 bot.action(/^cat_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -749,7 +760,7 @@ bot.action(/^cat_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 15. BOOK SELECTION (FIXED PREVIEW BEHAVIOR)
+// 15. BOOK SELECTION – preview on demand
 // ==========================================
 bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   const userId = ctx.from.id;
@@ -759,7 +770,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
   if (!book) return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
 
   if (!isPaidUser(userId)) {
-    // Show only book title and a button to preview, no automatic preview.
+    // Show only book title and payment info, preview button
     return ctx.reply(
       `📖 **${book.title}**\n\n🔒 This book requires a one‑time payment of **200 ETB** to unlock all books.\n\n📸 Please send a bank receipt to this bot.\n\n👁 You can preview the first ${PREVIEW_PAGES} pages by clicking the button below.`,
       {
@@ -790,7 +801,7 @@ bot.action(/^gb_(.+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 16. PREVIEW HANDLER (displays preview on demand)
+// 16. PREVIEW HANDLER
 // ==========================================
 bot.action(/^preview_(.+)_(.+)$/, (ctx) => {
   const catKey = ctx.match[1];
@@ -878,8 +889,7 @@ bot.command('stats', (ctx) => {
 bot.command('backup', async (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
   try {
-    // Ensure database is saved first
-    saveDatabase();
+    saveDatabase(); // ensure latest data
     const backupData = JSON.stringify(db, null, 2);
     if (!backupData || backupData === '{}') {
       return ctx.reply('⚠️ Database is empty or corrupted.');
@@ -924,14 +934,14 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 21. SEARCH (button handler)
+// 21. SEARCH
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("🔍 እባክዎን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 // ==========================================
-// 22. TEXT HANDLER (Search & Add Book)
+// 22. TEXT HANDLER (Search & Add Book – /done now works)
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -953,13 +963,14 @@ bot.on('text', async (ctx) => {
       session.step = 'preview';
       session.preview = '';
       return ctx.reply(
-        `✅ Title: \`${session.title}\`\n\n📄 **Step 2: Enter Preview**\n\n✏️ Type preview. Type \`/done\` when finished.`,
+        `✅ Title: \`${session.title}\`\n\n📄 **Step 2: Enter Preview**\n\n✏️ Type preview. Type \`/done\` or \`done\` when finished.`,
         { parse_mode: 'Markdown' }
       );
     }
     
     if (session.step === 'preview') {
-      if (text === '/done') {
+      // Accept both '/done' and 'done' (case-insensitive)
+      if (text.toLowerCase() === '/done' || text.toLowerCase() === 'done') {
         if (!session.preview || session.preview.trim().length < 10) {
           return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
         }
@@ -985,7 +996,7 @@ bot.on('text', async (ctx) => {
       if (!session.preview) session.preview = text;
       else session.preview += '\n\n' + text;
       const wordCount = session.preview.split(' ').length;
-      return ctx.reply(`📄 Updated! (${wordCount} words) Type /done when finished.`);
+      return ctx.reply(`📄 Updated! (${wordCount} words) Type /done or done when finished.`);
     }
     
     // If step === 'file', it will be handled by the file handler
@@ -1016,7 +1027,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 23. FILE HANDLER (with photo fix)
+// 23. FILE HANDLER – now reliably accepts photos as receipts
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1121,19 +1132,24 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice', 'animation', 'sticker'],
     }
     ctx.reply(`✅ Receipt received! 🧾 ${orderNumber}\n\nAdmin will verify shortly.`);
   } catch (forwardError) {
-    // Fallback: send photo directly to admin if forwarding fails (e.g., private chat or size limit)
-    console.log('Forward failed, sending photo directly:', forwardError.message);
+    // Fallback: send photo directly to admin if forwarding fails
+    console.log('Forward failed, sending directly:', forwardError.message);
     try {
-      // Send the photo directly with caption
-      await ctx.telegram.sendPhoto(ADMIN_IDS[0], fileInfo.fileId, {
-        caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
-        parse_mode: 'Markdown'
-      });
-      // Store pending with a dummy key (use unique string)
+      // Send the file directly
+      if (fileInfo.type === 'photo') {
+        await ctx.telegram.sendPhoto(ADMIN_IDS[0], fileInfo.fileId, {
+          caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
+          parse_mode: 'Markdown'
+        });
+      } else {
+        await ctx.telegram.sendDocument(ADMIN_IDS[0], fileInfo.fileId, {
+          caption: `📥 **New Receipt** (direct)\n🧾 ${orderNumber}\n👤 ${userId}\n✅ ${validation.confidence}%\n📋 ${validation.reasons}`,
+          parse_mode: 'Markdown'
+        });
+      }
       const dummyId = `direct_${orderNumber}`;
       db.pendingReceipts[dummyId] = { userId, orderNumber, confidence: validation.confidence };
       saveDatabase();
-      // Send admin approval buttons separately
       for (const adminId of ADMIN_IDS) {
         await ctx.telegram.sendMessage(adminId,
           `🧾 ${orderNumber}\n👤 ${userId}`,
