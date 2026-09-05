@@ -402,7 +402,8 @@ bot.hears('📞 አግኙኝ', (ctx) => {
     `📞 *የአስተዳዳሪ መረጃ*\n\n` +
     `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
     `➖ ኢሜይል: ${ADMIN_EMAIL}\n\n` +
-    `ማንኛውንም ጥያቄ ወይም ችግር በላይኛው አድራሻ ያናግሩን።`,
+    `ማንኛውንም ጥያቄ ወይም ችግር በላይኛው አድራሻ ያናግሩን።\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -414,7 +415,8 @@ bot.hears('💬 አስተያየት', (ctx) => {
     `ሀሳብዎን፣ አስተያየትዎን ወይም ማሻሻያ ሀሳብዎን በሚከተሉት አድራሻዎች ያሳውቁን።\n\n` +
     `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
     `➖ ኢሜይል: ${ADMIN_EMAIL}\n\n` +
-    `አስተያየትዎ ውድ ነው! 🙏`,
+    `አስተያየትዎ ውድ ነው! 🙏\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -429,14 +431,15 @@ bot.hears('📊 ስታቲስቲክስ', (ctx) => {
     `💰 ክፍያ: ${stats.is_paid ? '✅ ተከፍሏል' : '❌ አልተከፈለም'}\n` +
     `📚 የወረዱ መጽሐፍት: ${stats.total_downloads}\n` +
     `📖 የተለያዩ መጽሐፍት: ${stats.books_downloaded}\n` +
-    `🌍 ቋንቋ: ${stats.preferred_language}`,
+    `🌍 ቋንቋ: ${stats.preferred_language}\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
 
 // 🔄 Restart button
 bot.hears('🔄 ዳግም ጀምር', (ctx) => {
-  ctx.reply("👋 እንኳን ወደ ቦቱ በሰላም ተመለሱ! ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።", mainKeyboard);
+  ctx.reply("👋 እንኳን ወደ ቦቱ በሰላም ተመለሱ! ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", mainKeyboard);
 });
 
 // ==========================================
@@ -457,7 +460,8 @@ bot.command('help', (ctx) => {
     `የመጽሐፍ ስም በመተየብ ይፈልጉ።\n\n` +
     `👑 *አስተዳዳሪ*\n` +
     `/addbook, /removebook, /orderbook, /backup\n\n` +
-    `❓ ጥያቄ ካለዎት: ${ADMIN_USERNAME}`,
+    `❓ ጥያቄ ካለዎት: ${ADMIN_USERNAME}\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -473,14 +477,14 @@ bot.command('bookcount', async (ctx) => {
       msg += `• ${cat}: ${books.length}\n`;
     }
   }
-  msg += `\n*ጠቅላላ መጽሐፍት: ${total}*`;
+  msg += `\n*ጠቅላላ መጽሐፍት: ${total}*\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
 // Popular command
 bot.command('popular', async (ctx) => {
   if (!db.bookStats || Object.keys(db.bookStats).length === 0) {
-    return ctx.reply('📊 እስካሁን ምንም መጽሐፍ አልተወረደም።');
+    return ctx.reply('📊 እስካሁን ምንም መጽሐፍ አልተወረደም።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
   }
   const sorted = Object.entries(db.bookStats).sort((a, b) => b[1] - a[1]).slice(0, 5);
   let msg = '🏆 *በብዛት የተወረዱ መጽሐፍት*\n\n';
@@ -491,6 +495,7 @@ bot.command('popular', async (ctx) => {
       msg += `• ${book.title} (${cat}) – ${count} ውርዶች\n`;
     }
   }
+  msg += `\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
@@ -501,9 +506,9 @@ bot.command('random', async (ctx) => {
     const books = await getBooks(cat);
     if (books && books.length > 0) allBooks = allBooks.concat(books);
   }
-  if (allBooks.length === 0) return ctx.reply('📚 ምንም መጽሐፍ የለም።');
+  if (allBooks.length === 0) return ctx.reply('📚 ምንም መጽሐፍ የለም።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
   const book = allBooks[Math.floor(Math.random() * allBooks.length)];
-  ctx.reply(`📖 *የዘፈቀደ መጽሐፍ*\n\n${book.title}\n📂 ${book.category}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።`, {
+  ctx.reply(`📖 *የዘፈቀደ መጽሐፍ*\n\n${book.title}\n📂 ${book.category}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
       [Markup.button.callback("📖 አንብብ", `gb_${book.id}`)]
@@ -520,7 +525,8 @@ bot.command('addbook', (ctx) => {
   ctx.reply(
     `📚 *አዲስ መጽሐፍ መጨመር*\n\n` +
     `**ደረጃ 1: የመጽሐፍ ርዕስ ያስገቡ**\n\n` +
-    `ለምሳሌ: \`ድርሳነ ሚካኤል ብራና\``,
+    `ለምሳሌ: \`ድርሳነ ሚካኤል ብራና\`\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -530,7 +536,7 @@ bot.command('canceladd', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
     delete addBookSessions[userId];
-    ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።");
+    ctx.reply("❌ መጽሐፍ መጨመር ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   } else {
     ctx.reply("⚠️ ምንም እየተጨመረ ያለ መጽሐፍ የለም።");
   }
@@ -542,7 +548,7 @@ bot.command('removebook', (ctx) => {
   if (!isAdmin(userId)) return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
   if (addBookSessions[userId]) return ctx.reply("⚠️ አሁን ሌላ ስራ እየሰሩ ነው። /cancel ይጠቀሙ።");
   addBookSessions[userId] = { step: 'remove_waiting' };
-  ctx.reply("🗑️ *መጽሐፍ መሰረዝ*\n\nየመጽሐፉን መታወቂያ (ID) ያስገቡ።\nለምሳሌ: `amh_law_1`\n\n/ቀጣይ ትዕዛዝ ለመሰረዝ /cancel ይጠቀሙ።", { parse_mode: 'Markdown' });
+  ctx.reply("🗑️ *መጽሐፍ መሰረዝ*\n\nየመጽሐፉን መታወቂያ (ID) ያስገቡ።\nለምሳሌ: `amh_law_1`\n\n/ቀጣይ ትዕዛዝ ለመሰረዝ /cancel ይጠቀሙ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", { parse_mode: 'Markdown' });
 });
 
 // Order book command
@@ -556,7 +562,8 @@ bot.command('orderbook', (ctx) => {
     "የምድቡን ስም እና አዲሱን ቅደም ተከተል በመታወቂያ (ID) ያስገቡ።\n\n" +
     "ለምሳሌ:\n`amh_law 3 1 5 2 4`\n\n" +
     "ይህ በ `amh_law` ምድብ ውስጥ መጽሐፍትን እንደገና ያደራጃል።\n\n" +
-    "ለመሰረዝ /cancel ይጠቀሙ።", { parse_mode: 'Markdown' }
+    "ለመሰረዝ /cancel ይጠቀሙ።\n\n" +
+    "👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", { parse_mode: 'Markdown' }
   );
 });
 
@@ -565,7 +572,7 @@ bot.command('cancel', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
     delete addBookSessions[userId];
-    ctx.reply("❌ ተሰርዟል።");
+    ctx.reply("❌ ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   } else {
     ctx.reply("⚠️ ምንም እየተሰራ ያለ ስራ የለም።");
   }
@@ -580,7 +587,8 @@ bot.command('stats', (ctx) => {
     `📊 *የቦት መረጃ*\n\n` +
     `👤 ጠቅላላ ተጠቃሚዎች: ${total}\n` +
     `💰 የከፈሉ: ${paid}\n` +
-    `📖 ነጻ: ${total - paid}`,
+    `📖 ነጻ: ${total - paid}\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -598,7 +606,7 @@ bot.command('backup', (ctx) => {
     ctx.replyWithDocument({
       source: Buffer.from(JSON.stringify(backupData, null, 2), 'utf-8'),
       filename: `backup_${Date.now()}.json`
-    }, { caption: "📦 የውሂብ ምትኬ" });
+    }, { caption: `📦 የውሂብ ምትኬ\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን` });
   } catch (e) {
     ctx.reply("❌ ምትኬ ማውጣት አልተሳካም።");
   }
@@ -644,7 +652,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
       `• ቴሌብር (Telebirr): 0943910036\n\n` +
       `👤 የአካውንት ስም: Matewos Getahun Seifu\n\n` +
       `📸 ከክፍያ በኋላ ሪሲቱን (ፎቶ ወይም ፒዲኤፍ) ወደዚህ ቦት ይላኩ።\n\n` +
-      `👁 ከስር ያለውን ቁልፍ በመጫን የመጀመሪያዎቹን ገጾች ይመልከቱ።\n\n` +
+      `👁 ከስር ያለውን ቁልፍ በመጫን የመጽሐፉን ቅድመ እይታ ይመልከቱ።\n\n` +
       `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
       {
         parse_mode: 'Markdown',
@@ -662,24 +670,31 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
     trackDownload(userId, book.category, book.id);
   }).catch((error) => {
     console.error('Error sending book:', error);
-    ctx.reply(`❌ መጽሐፉን መላክ አልተሳካም። እባክዎትን እንደገና ይሞክሩ።`);
+    ctx.reply(`❌ መጽሐፉን መላክ አልተሳካም። እባክዎትን እንደገና ይሞክሩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
   });
 });
 
 // ==========================================
-// 14. PREVIEW HANDLER (FIXED)
+// 14. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
 // ==========================================
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const bookId = ctx.match[1];
   const book = await getBook(bookId);
-  if (!book) return ctx.reply("❌ መጽሐፉ አልተገኘም።");
-
-  let previewText = `📖 *${book.title}*\n\n📄 *ቅድመ እይታ (ገጽ 1-${PREVIEW_PAGES})*\n\n`;
-  for (let i = 1; i <= Math.min(PREVIEW_PAGES, 10); i++) {
-    previewText += `📄 *ገጽ ${i}:*\n${book.preview || 'ይህ ገጽ መንፈሳዊ ትምህርቶችን ይዟል...'}\n\n`;
+  if (!book) {
+    return ctx.reply("❌ መጽሐፉ አልተገኘም።");
   }
-  previewText += `\n━━━━━━━━━━━━━━━━━━━━━\n🔒 ሙሉውን መጽሐፍ ለማንበብ ክፍያ ይፈጽሙ።\n━━━━━━━━━━━━━━━━━━━━━\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
+
+  // Get the preview text from the database – it can be a long paragraph
+  const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
+
+  let previewText = `📖 *${book.title}*\n\n`;
+  previewText += `📄 *ቅድመ እይታ*\n\n`;
+  previewText += `${previewContent}\n\n`;
+  previewText += `━━━━━━━━━━━━━━━━━━━━━\n`;
+  previewText += `🔒 ሙሉውን መጽሐፍ ለማንበብ ክፍያ ይፈጽሙ።\n`;
+  previewText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
+  previewText += `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
 
   ctx.reply(previewText, {
     parse_mode: 'Markdown',
@@ -706,7 +721,7 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
     protect_content: true
   }).then(() => {
     trackDownload(userId, book.category, book.id);
-    ctx.reply("✅ መጽሐፉ በተሳካ ሁኔታ ተላከ!");
+    ctx.reply("✅ መጽሐፉ በተሳካ ሁኔታ ተላከ!\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }).catch(() => {
     ctx.reply("❌ እንደገና አልተሳካም። እባክዎትን በኋላ ይሞክሩ።");
   });
@@ -942,7 +957,7 @@ bot.action(/^addcat_(.+)$/, (ctx) => {
   session.category = category;
   session.step = 'file';
   ctx.editMessageText(
-    `✅ ምድብ: \`${category}\`\n\n📎 *ደረጃ 4: የመጽሐፉን ፋይል ይላኩ*\n\n📤 ፋይሉን (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n💡 ይህ የመጨረሻ ደረጃ ነው!`,
+    `✅ ምድብ: \`${category}\`\n\n📎 *ደረጃ 4: የመጽሐፉን ፋይል ይላኩ*\n\n📤 ፋይሉን (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n💡 ይህ የመጨረሻ ደረጃ ነው!\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -952,7 +967,7 @@ bot.action('cancel_add_book', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
     delete addBookSessions[userId];
-    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
+    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   } else {
     ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
   }
@@ -1106,7 +1121,7 @@ bot.on('text', async (ctx) => {
   // ---- CANCEL ----
   if (text === '/cancel' && addBookSessions[userId]) {
     delete addBookSessions[userId];
-    return ctx.reply("❌ ተሰርዟል።");
+    return ctx.reply("❌ ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }
 
   // ---- ADD BOOK FLOW ----
@@ -1118,7 +1133,7 @@ bot.on('text', async (ctx) => {
       session.step = 'preview';
       session.preview = '';
       return ctx.reply(
-        `✅ ርዕስ: \`${session.title}\`\n\n📄 *ደረጃ 2: ቅድመ እይታ ያስገቡ*\n\n✏️ የመጽሐፉን ቅድመ እይታ ይተይቡ። ሲጨርሱ /done ይተይቡ።`,
+        `✅ ርዕስ: \`${session.title}\`\n\n📄 *ደረጃ 2: ቅድመ እይታ ያስገቡ*\n\n✏️ የመጽሐፉን ቅድመ እይታ ይተይቡ። ሲጨርሱ /done ይተይቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
         { parse_mode: 'Markdown' }
       );
     }
@@ -1147,7 +1162,7 @@ bot.on('text', async (ctx) => {
     }
 
     if (session.step === 'file') {
-      return ctx.reply("📤 እባክዎትን የመጽሐፉን ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።");
+      return ctx.reply("📤 እባክዎትን የመጽሐፉን ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
     }
 
     // ---- REMOVE BOOK FLOW ----
@@ -1160,7 +1175,7 @@ bot.on('text', async (ctx) => {
       session.remove_book_id = bookId;
       session.step = 'remove_confirm';
       return ctx.reply(
-        `📖 *ተገኘ:*\n\nርዕስ: ${book.title}\nምድብ: ${book.category}\nመታወቂያ: ${book.id}\n\n❓ ይህንን መጽሐፍ መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?\n**እዎ** ወይም **አይ** ይተይቡ።`
+        `📖 *ተገኘ:*\n\nርዕስ: ${book.title}\nምድብ: ${book.category}\nመታወቂያ: ${book.id}\n\n❓ ይህንን መጽሐፍ መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?\n**እዎ** ወይም **አይ** ይተይቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`
       );
     }
 
