@@ -1213,7 +1213,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ==========================================
-// 22. TEXT HANDLER
+// 22. TEXT HANDLER (WITH TYPO-TOLERANT SEARCH)
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -1340,21 +1340,68 @@ bot.on('text', async (ctx) => {
   // ---- SKIP COMMANDS & BUTTON TEXTS ----
   if (text.startsWith('/')) return;
 
-  // ---- SEARCH ----
+  // ---- SEARCH (WITH TYPO TOLERANCE) ----
   const query = text.trim().toLowerCase();
   let matches = [];
+  const searchWords = query.split(' ').filter(w => w.length > 0);
+
   for (const cat of allCategories) {
     const books = await getBooks(cat);
     if (books) {
       for (const book of books) {
-        if (book.title.toLowerCase().includes(query)) {
-          matches.push({ ...book, catKey: cat });
+        const title = book.title.toLowerCase();
+        const titleWords = title.split(' ').filter(w => w.length > 0);
+        
+        // Skip books with empty titles
+        if (titleWords.length === 0) continue;
+        
+        let isMatch = false;
+        
+        // Check each search word against each title word
+        for (const sWord of searchWords) {
+          for (const tWord of titleWords) {
+            // Exact substring match
+            if (tWord.includes(sWord) || sWord.includes(tWord)) {
+              isMatch = true;
+              break;
+            }
+            // Check for Amharic character variations (ሀ/ሐ/አ/ኣ etc.)
+            const normS = sWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
+            const normT = tWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
+            if (normT.includes(normS) || normS.includes(normT)) {
+              isMatch = true;
+              break;
+            }
+          }
+          if (isMatch) break;
+        }
+        
+        if (isMatch) {
+          // Avoid duplicates
+          if (!matches.some(m => m.id === book.id)) {
+            matches.push({ ...book, catKey: cat });
+          }
         }
       }
     }
   }
 
-  if (matches.length === 0) return ctx.reply(`🔍 ለ "${text}" ምንም ውጤት አልተገኘም።`);
+  // Sort matches by relevance (books that match more words first)
+  matches.sort((a, b) => {
+    const aTitle = a.title.toLowerCase();
+    const bTitle = b.title.toLowerCase();
+    let aCount = 0, bCount = 0;
+    for (const w of searchWords) {
+      if (aTitle.includes(w)) aCount++;
+      if (bTitle.includes(w)) bCount++;
+    }
+    return bCount - aCount;
+  });
+
+  if (matches.length === 0) {
+    return ctx.reply(`🔍 ለ "${text}" ምንም ውጤት አልተገኘም።\n\n💡 እባክዎትን የመጽሐፉን ስም በትክክል ይጻፉ።`);
+  }
+
   const buttons = matches.slice(0, 20).map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.id}`)
   ]);
