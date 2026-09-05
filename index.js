@@ -504,9 +504,13 @@ bot.command('bookcount', async (ctx) => {
     for (const cat of allCategories) {
       const books = await getBooks(cat);
       if (books && books.length > 0) {
-        hasBooks = true;
-        total += books.length;
-        msg += `• ${cat}: ${books.length}\n`;
+        // Filter out books with empty or invalid titles
+        const validBooks = books.filter(b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined');
+        if (validBooks.length > 0) {
+          hasBooks = true;
+          total += validBooks.length;
+          msg += `• ${cat}: ${validBooks.length}\n`;
+        }
       }
     }
     
@@ -549,7 +553,11 @@ bot.command('random', async (ctx) => {
     for (const cat of allCategories) {
       const books = await getBooks(cat);
       if (books && books.length > 0) {
-        allBooks = allBooks.concat(books);
+        // Filter out books with empty or invalid titles
+        const validBooks = books.filter(b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined');
+        if (validBooks.length > 0) {
+          allBooks = allBooks.concat(validBooks);
+        }
       }
     }
     
