@@ -25,7 +25,25 @@ const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUP
 const bot = new Telegraf(BOT_TOKEN);
 
 // ==========================================
-// 2. EXPRESS SERVER (For Render Uptime)
+// 2. THREE DASHES MENU (☰) - SET COMMANDS
+// ==========================================
+bot.telegram.setMyCommands([
+  { command: 'start', description: '🚀 ቦቱን ይጀምሩ' },
+  { command: 'help', description: '📖 እርዳታ ያግኙ' },
+  { command: 'bookcount', description: '📚 የመጽሐፍ ብዛት ያሳይ' },
+  { command: 'popular', description: '🏆 በብዛት የተወረዱ መጽሐፍት' },
+  { command: 'random', description: '🎲 የዘፈቀደ መጽሐፍ' },
+  { command: 'stats', description: '📊 የቦት ስታቲስቲክስ' },
+  { command: 'addbook', description: '📕 አዲስ መጽሐፍ ይጨምሩ' },
+  { command: 'removebook', description: '🗑️ መጽሐፍ ይሰርዙ' },
+  { command: 'orderbook', description: '🔄 መጽሐፍትን ያደራጁ' },
+  { command: 'backup', description: '💾 የውሂብ ምትኬ' },
+  { command: 'canceladd', description: '❌ መጽሐፍ መጨመር ይሰርዙ' },
+  { command: 'cancel', description: '❌ ስራ ይሰርዙ' }
+]);
+
+// ==========================================
+// 3. EXPRESS SERVER (For Render Uptime)
 // ==========================================
 const app = express();
 
@@ -45,7 +63,7 @@ setInterval(async () => {
 }, 3 * 60 * 1000);
 
 // ==========================================
-// 3. DATABASE LAYER (Supabase or fallback JSON)
+// 4. DATABASE LAYER (Supabase or fallback JSON)
 // ==========================================
 const DATA_FILE = path.join(__dirname, 'database.json');
 let db = null;
@@ -203,12 +221,12 @@ async function reorderBooks(category, orderedIds) {
 }
 
 // ==========================================
-// 4. ADD BOOK SESSIONS
+// 5. ADD BOOK SESSIONS
 // ==========================================
 const addBookSessions = {};
 
 // ==========================================
-// 5. OTHER HELPERS
+// 6. OTHER HELPERS
 // ==========================================
 function isAdmin(userId) { return ADMIN_IDS.includes(userId); }
 function isPaidUser(userId) {
@@ -279,7 +297,7 @@ function logError(type, error) {
 }
 
 // ==========================================
-// 6. RATE LIMITING (ADMIN EXEMPT)
+// 7. RATE LIMITING (ADMIN EXEMPT)
 // ==========================================
 const userRequests = {};
 function checkRateLimit(userId) {
@@ -303,12 +321,12 @@ function checkRateLimitCallback(ctx) {
 }
 
 // ==========================================
-// 7. ALL CATEGORIES (must be defined early)
+// 8. ALL CATEGORIES (must be defined early)
 // ==========================================
 const allCategories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
 
 // ==========================================
-// 8. MAIN KEYBOARD
+// 9. MAIN KEYBOARD
 // ==========================================
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
@@ -317,7 +335,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ==========================================
-// 9. START COMMAND (FRIENDLY VERSION)
+// 10. START COMMAND (FRIENDLY VERSION)
 // ==========================================
 bot.start((ctx) => {
   const userId = ctx.from.id;
@@ -336,7 +354,7 @@ bot.start((ctx) => {
 });
 
 // ==========================================
-// 10. MAIN KEYBOARD HANDLERS (ALL WORKING)
+// 11. MAIN KEYBOARD HANDLERS (ALL WORKING)
 // ==========================================
 
 // 📚 Books button
@@ -451,7 +469,7 @@ bot.hears('🔄 ዳግም ጀምር', (ctx) => {
 });
 
 // ==========================================
-// 11. ALL COMMANDS (FULLY FUNCTIONAL)
+// 12. ALL COMMANDS (FULLY FUNCTIONAL)
 // ==========================================
 
 // 📖 HELP COMMAND
@@ -625,7 +643,7 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 12. CATEGORY HANDLER (FIXED)
+// 13. CATEGORY HANDLER (FIXED)
 // ==========================================
 bot.action(/^cat_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -642,7 +660,7 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 13. BOOK HANDLER (FIXED)
+// 14. BOOK HANDLER (FIXED)
 // ==========================================
 bot.action(/^gb_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -687,7 +705,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 14. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
+// 15. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
 // ==========================================
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -718,7 +736,7 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 15. RETRY HANDLER (FIXED)
+// 16. RETRY HANDLER (FIXED)
 // ==========================================
 bot.action(/^retry_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -740,7 +758,7 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 16. SUB-MENU ACTIONS
+// 17. SUB-MENU ACTIONS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -957,7 +975,7 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// 17. ADD CATEGORY BUTTON (for addbook flow)
+// 18. ADD CATEGORY BUTTON (for addbook flow)
 // ==========================================
 bot.action(/^addcat_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -986,7 +1004,7 @@ bot.action('cancel_add_book', (ctx) => {
 });
 
 // ==========================================
-// 18. ADMIN ACTIONS (Approve/Reject)
+// 19. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1008,7 +1026,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 19. FILE HANDLER
+// 20. FILE HANDLER
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1122,7 +1140,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ==========================================
-// 20. TEXT HANDLER
+// 21. TEXT HANDLER
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -1271,7 +1289,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 21. LAUNCH
+// 22. LAUNCH
 // ==========================================
 async function launchBot() {
   try {
