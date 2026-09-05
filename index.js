@@ -279,13 +279,16 @@ function logError(type, error) {
 }
 
 // ==========================================
-// 6. RATE LIMITING
+// 6. RATE LIMITING (ADMIN EXEMPT)
 // ==========================================
 const userRequests = {};
 function checkRateLimit(userId) {
+  // Admins have unlimited access
+  if (isAdmin(userId)) return true;
+  
   const now = Date.now();
   if (!userRequests[userId]) userRequests[userId] = [];
-  userRequests[userId] = userRequests[userId].filter(t => now - t < 60000);
+  userRequests[userId] = userRequests[userId].filter(t => now - t < RATE_WINDOW);
   if (userRequests[userId].length >= RATE_LIMIT) return false;
   userRequests[userId].push(now);
   return true;
@@ -293,7 +296,7 @@ function checkRateLimit(userId) {
 function checkRateLimitCallback(ctx) {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) {
-    ctx.answerCbQuery("⏳ Please wait a moment.");
+    ctx.answerCbQuery("⏳ እባክዎትን ትንሽ ይጠብቁ! (30/ደቂቃ)");
     return false;
   }
   return true;
@@ -393,11 +396,13 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
 
 // 🔍 Search button
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply("🔍 እባክዎትን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 // 📞 Contact button (CLEAR VERSION)
 bot.hears('📞 አግኙኝ', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply(
     `📞 *የአስተዳዳሪ መረጃ*\n\n` +
     `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
@@ -410,6 +415,7 @@ bot.hears('📞 አግኙኝ', (ctx) => {
 
 // 💬 Feedback button
 bot.hears('💬 አስተያየት', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply(
     `💬 *አስተያየት ወይም ሀሳብ*\n\n` +
     `ሀሳብዎን፣ አስተያየትዎን ወይም ማሻሻያ ሀሳብዎን በሚከተሉት አድራሻዎች ያሳውቁን።\n\n` +
@@ -423,6 +429,7 @@ bot.hears('💬 አስተያየት', (ctx) => {
 
 // 📊 Stats button
 bot.hears('📊 ስታቲስቲክስ', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   const stats = getUserStats(ctx.from.id);
   if (!stats) return ctx.reply("❌ መረጃ አልተገኘም።");
   ctx.reply(
@@ -439,15 +446,17 @@ bot.hears('📊 ስታቲስቲክስ', (ctx) => {
 
 // 🔄 Restart button
 bot.hears('🔄 ዳግም ጀምር', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply("👋 እንኳን ወደ ቦቱ በሰላም ተመለሱ! ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", mainKeyboard);
 });
 
 // ==========================================
-// 11. ALL COMMANDS
+// 11. ALL COMMANDS (FULLY FUNCTIONAL)
 // ==========================================
 
-// Help command
+// 📖 HELP COMMAND
 bot.command('help', (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply(
     `📖 *የቦት እርዳታ*\n\n` +
     `📚 *መጽሐፍትን ለማየት*\n` +
@@ -466,8 +475,9 @@ bot.command('help', (ctx) => {
   );
 });
 
-// Book count command
+// 📚 BOOKCOUNT COMMAND
 bot.command('bookcount', async (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   let total = 0;
   let msg = '📚 *የመጽሐፍ ብዛት*\n\n';
   for (const cat of allCategories) {
@@ -481,8 +491,9 @@ bot.command('bookcount', async (ctx) => {
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
-// Popular command
+// 🏆 POPULAR COMMAND
 bot.command('popular', async (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   if (!db.bookStats || Object.keys(db.bookStats).length === 0) {
     return ctx.reply('📊 እስካሁን ምንም መጽሐፍ አልተወረደም።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
   }
@@ -499,8 +510,9 @@ bot.command('popular', async (ctx) => {
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
-// Random command
+// 🎲 RANDOM COMMAND
 bot.command('random', async (ctx) => {
+  if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   let allBooks = [];
   for (const cat of allCategories) {
     const books = await getBooks(cat);
@@ -516,7 +528,7 @@ bot.command('random', async (ctx) => {
   });
 });
 
-// Add book command
+// 📕 ADD BOOK COMMAND
 bot.command('addbook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -531,7 +543,7 @@ bot.command('addbook', (ctx) => {
   );
 });
 
-// Cancel add command
+// ❌ CANCEL ADD COMMAND
 bot.command('canceladd', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
@@ -542,7 +554,7 @@ bot.command('canceladd', (ctx) => {
   }
 });
 
-// Remove book command
+// 🗑️ REMOVE BOOK COMMAND
 bot.command('removebook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -551,7 +563,7 @@ bot.command('removebook', (ctx) => {
   ctx.reply("🗑️ *መጽሐፍ መሰረዝ*\n\nየመጽሐፉን መታወቂያ (ID) ያስገቡ።\nለምሳሌ: `amh_law_1`\n\n/ቀጣይ ትዕዛዝ ለመሰረዝ /cancel ይጠቀሙ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", { parse_mode: 'Markdown' });
 });
 
-// Order book command
+// 🔄 ORDER BOOK COMMAND
 bot.command('orderbook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -567,7 +579,7 @@ bot.command('orderbook', (ctx) => {
   );
 });
 
-// Cancel session command
+// ❌ CANCEL SESSION COMMAND
 bot.command('cancel', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
@@ -578,7 +590,7 @@ bot.command('cancel', (ctx) => {
   }
 });
 
-// Admin stats command
+// 📊 ADMIN STATS COMMAND
 bot.command('stats', (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
   const total = Object.keys(db.users).length;
@@ -593,7 +605,7 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// Backup command
+// 💾 BACKUP COMMAND
 bot.command('backup', (ctx) => {
   if (!isAdmin(ctx.from.id)) return;
   try {
