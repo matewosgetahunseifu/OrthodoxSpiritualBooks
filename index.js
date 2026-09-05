@@ -493,20 +493,33 @@ bot.command('help', (ctx) => {
   );
 });
 
-// 📚 BOOKCOUNT COMMAND
+// 📚 BOOKCOUNT COMMAND (FIXED)
 bot.command('bookcount', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  let total = 0;
-  let msg = '📚 *የመጽሐፍ ብዛት*\n\n';
-  for (const cat of allCategories) {
-    const books = await getBooks(cat);
-    if (books && books.length > 0) {
-      total += books.length;
-      msg += `• ${cat}: ${books.length}\n`;
+  try {
+    let total = 0;
+    let msg = '📚 *የመጽሐፍ ብዛት*\n\n';
+    let hasBooks = false;
+    
+    for (const cat of allCategories) {
+      const books = await getBooks(cat);
+      if (books && books.length > 0) {
+        hasBooks = true;
+        total += books.length;
+        msg += `• ${cat}: ${books.length}\n`;
+      }
     }
+    
+    if (!hasBooks) {
+      return ctx.reply('📚 *የመጽሐፍ ብዛት*\n\nምንም መጽሐፍ አልተገኘም። እባክዎትን በኋላ ይመለሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን', { parse_mode: 'Markdown' });
+    }
+    
+    msg += `\n*ጠቅላላ መጽሐፍት: ${total}*\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
+    await ctx.reply(msg, { parse_mode: 'Markdown' });
+  } catch (error) {
+    console.error('Bookcount error:', error);
+    ctx.reply('❌ የመጽሐፍ ብዛት ማግኘት አልተሳካም። እባክዎትን እንደገና ይሞክሩ።');
   }
-  msg += `\n*ጠቅላላ መጽሐፍት: ${total}*\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
-  ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
 // 🏆 POPULAR COMMAND
@@ -528,22 +541,33 @@ bot.command('popular', async (ctx) => {
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
-// 🎲 RANDOM COMMAND
+// 🎲 RANDOM COMMAND (FIXED)
 bot.command('random', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  let allBooks = [];
-  for (const cat of allCategories) {
-    const books = await getBooks(cat);
-    if (books && books.length > 0) allBooks = allBooks.concat(books);
+  try {
+    let allBooks = [];
+    for (const cat of allCategories) {
+      const books = await getBooks(cat);
+      if (books && books.length > 0) {
+        allBooks = allBooks.concat(books);
+      }
+    }
+    
+    if (allBooks.length === 0) {
+      return ctx.reply('📚 ምንም መጽሐፍ የለም። እባክዎትን በኋላ ይመለሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
+    }
+    
+    const book = allBooks[Math.floor(Math.random() * allBooks.length)];
+    await ctx.reply(`📖 *የዘፈቀደ መጽሐፍ*\n\n📕 ${book.title}\n📂 ምድብ: ${book.category}\n🆔 መታወቂያ: ${book.id}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback("📖 አንብብ", `gb_${book.id}`)]
+      ])
+    });
+  } catch (error) {
+    console.error('Random error:', error);
+    ctx.reply('❌ የዘፈቀደ መጽሐፍ ማግኘት አልተሳካም። እባክዎትን እንደገና ይሞክሩ።');
   }
-  if (allBooks.length === 0) return ctx.reply('📚 ምንም መጽሐፍ የለም።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
-  const book = allBooks[Math.floor(Math.random() * allBooks.length)];
-  ctx.reply(`📖 *የዘፈቀደ መጽሐፍ*\n\n${book.title}\n📂 ${book.category}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, {
-    parse_mode: 'Markdown',
-    ...Markup.inlineKeyboard([
-      [Markup.button.callback("📖 አንብብ", `gb_${book.id}`)]
-    ])
-  });
 });
 
 // 📕 ADD BOOK COMMAND
@@ -623,9 +647,15 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// 💾 BACKUP COMMAND
-bot.command('backup', (ctx) => {
-  if (!isAdmin(ctx.from.id)) return;
+// 💾 BACKUP COMMAND (FIXED)
+bot.command('backup', async (ctx) => {
+  const userId = ctx.from.id;
+  
+  // Check if admin
+  if (!isAdmin(userId)) {
+    return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
+  }
+  
   try {
     const backupData = supabase ? { 
       message: "Using Supabase – run /bookcount for book list", 
@@ -633,12 +663,14 @@ bot.command('backup', (ctx) => {
       pendingReceipts: db.pendingReceipts,
       bookStats: db.bookStats
     } : db;
-    ctx.replyWithDocument({
+    
+    await ctx.replyWithDocument({
       source: Buffer.from(JSON.stringify(backupData, null, 2), 'utf-8'),
       filename: `backup_${Date.now()}.json`
     }, { caption: `📦 የውሂብ ምትኬ\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን` });
-  } catch (e) {
-    ctx.reply("❌ ምትኬ ማውጣት አልተሳካም።");
+  } catch (error) {
+    console.error('Backup error:', error);
+    ctx.reply("❌ ምትኬ ማውጣት አልተሳካም። እባክዎትን እንደገና ይሞክሩ።");
   }
 });
 
