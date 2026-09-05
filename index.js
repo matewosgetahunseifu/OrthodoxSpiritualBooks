@@ -504,7 +504,6 @@ bot.command('bookcount', async (ctx) => {
     for (const cat of allCategories) {
       const books = await getBooks(cat);
       if (books && books.length > 0) {
-        // Filter out books with empty or invalid titles
         const validBooks = books.filter(b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined');
         if (validBooks.length > 0) {
           hasBooks = true;
@@ -553,7 +552,6 @@ bot.command('random', async (ctx) => {
     for (const cat of allCategories) {
       const books = await getBooks(cat);
       if (books && books.length > 0) {
-        // Filter out books with empty or invalid titles
         const validBooks = books.filter(b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined');
         if (validBooks.length > 0) {
           allBooks = allBooks.concat(validBooks);
@@ -700,7 +698,7 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 14. BOOK HANDLER (FIXED)
+// 14. BOOK HANDLER (FIXED – SHOWS PREVIEW FOR ALL USERS)
 // ==========================================
 bot.action(/^gb_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -711,9 +709,14 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
     return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
   }
 
+  // Get the preview content
+  const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
+  const previewText = `📖 *${book.title}*\n\n📄 *ቅድመ እይታ*\n\n${previewContent}\n\n━━━━━━━━━━━━━━━━━━━━━\n`;
+
+  // For non-paid users: show preview + payment info
   if (!isPaidUser(userId)) {
     return ctx.reply(
-      `📖 *${book.title}*\n\n` +
+      `${previewText}` +
       `🔒 ይህ መጽሐፍ የተቆለፈ ነው። *200 ብር* አንድ ጊዜ በመክፈል ሁሉንም መጽሐፍት ይክፈቱ።\n\n` +
       `💳 *የክፍያ መንገዶች*\n` +
       `• አሐዱ ባንክ: 0100775011101\n` +
@@ -722,15 +725,46 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
       `• ቴሌብር (Telebirr): 0943910036\n\n` +
       `👤 የአካውንት ስም: Matewos Getahun Seifu\n\n` +
       `📸 ከክፍያ በኋላ ሪሲቱን (ፎቶ ወይም ፒዲኤፍ) ወደዚህ ቦት ይላኩ።\n\n` +
-      `👁 ከስር ያለውን ቁልፍ በመጫን የመጽሐፉን ቅድመ እይታ ይመልከቱ።\n\n` +
       `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback("👁 ቅድመ እይታ", `preview_${book.id}`)]
+          [Markup.button.callback("👁 ሙሉ ቅድመ እይታ", `preview_${book.id}`)]
         ])
       }
     );
+  }
+
+  // For paid users: show preview + download button
+  return ctx.reply(
+    `${previewText}` +
+    `✅ ክፍያ ፈጽመዋል! መጽሐፉን ሙሉ በሙሉ ማውረድ ይችላሉ።\n\n` +
+    `💡 ከመውረድዎ በፊት ቅድመ እይታውን ይመልከቱ።\n\n` +
+    `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
+    {
+      parse_mode: 'Markdown',
+      ...Markup.inlineKeyboard([
+        [Markup.button.callback("👁 ሙሉ ቅድመ እይታ", `preview_${book.id}`)],
+        [Markup.button.callback("📥 ሙሉ መጽሐፍ አውርድ", `download_${book.id}`)]
+      ])
+    }
+  );
+});
+
+// ==========================================
+// 15. DOWNLOAD HANDLER (NEW – for paid users)
+// ==========================================
+bot.action(/^download_(.+)$/, async (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  const bookId = ctx.match[1];
+  const book = await getBook(bookId);
+  if (!book) {
+    return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
+  }
+
+  if (!isPaidUser(userId)) {
+    return ctx.reply("⛔ ክፍያ አልፈጸሙም። እባክዎትን መጀመሪያ ይክፈሉ።");
   }
 
   ctx.replyWithDocument(book.file_id, {
@@ -745,7 +779,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 15. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
+// 16. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
 // ==========================================
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -755,11 +789,10 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
     return ctx.reply("❌ መጽሐፉ አልተገኘም።");
   }
 
-  // Get the preview text from the database – it can be a long paragraph
   const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
 
   let previewText = `📖 *${book.title}*\n\n`;
-  previewText += `📄 *ቅድመ እይታ*\n\n`;
+  previewText += `📄 *ሙሉ ቅድመ እይታ*\n\n`;
   previewText += `${previewContent}\n\n`;
   previewText += `━━━━━━━━━━━━━━━━━━━━━\n`;
   previewText += `🔒 ሙሉውን መጽሐፍ ለማንበብ ክፍያ ይፈጽሙ።\n`;
@@ -776,7 +809,7 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 16. RETRY HANDLER (FIXED)
+// 17. RETRY HANDLER (FIXED)
 // ==========================================
 bot.action(/^retry_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -798,7 +831,7 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 17. SUB-MENU ACTIONS
+// 18. SUB-MENU ACTIONS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1015,7 +1048,7 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// 18. ADD CATEGORY BUTTON (for addbook flow)
+// 19. ADD CATEGORY BUTTON (for addbook flow)
 // ==========================================
 bot.action(/^addcat_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1044,7 +1077,7 @@ bot.action('cancel_add_book', (ctx) => {
 });
 
 // ==========================================
-// 19. ADMIN ACTIONS (Approve/Reject)
+// 20. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1066,7 +1099,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 20. FILE HANDLER
+// 21. FILE HANDLER
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1180,7 +1213,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ==========================================
-// 21. TEXT HANDLER
+// 22. TEXT HANDLER
 // ==========================================
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
@@ -1329,7 +1362,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 22. LAUNCH
+// 23. LAUNCH
 // ==========================================
 async function launchBot() {
   try {
