@@ -149,6 +149,7 @@ async function getBooks(category) {
 }
 
 async function getBook(id) {
+  console.log(`🔍 Looking for book with ID: "${id}"`);
   if (supabase) {
     return await supabaseGetBook(id);
   }
@@ -445,7 +446,7 @@ bot.command('random', async (ctx) => {
   ctx.reply(`📖 **Random Book:**\n\n${book.title}\nCategory: ${book.category}\n\nClick below to read it.`, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback("📖 Read", `gb_${book.category}_${book.id}`)]
+      [Markup.button.callback("📖 Read", `gb_${book.id}`)]
     ])
   });
 });
@@ -488,7 +489,6 @@ bot.command('orderbook', (ctx) => {
     "🔄 **Reorder Books**\n\n" +
     "Enter the **category** and the new order as a list of book IDs.\n\n" +
     "Example:\n`amh_law 3 1 5 2 4`\n\n" +
-    "This will reorder books in the `amh_law` category so that book ID 3 becomes first, ID 1 second, etc.\n\n" +
     "Type `/cancel` to abort."
   );
 });
@@ -508,7 +508,7 @@ bot.command('stats', (ctx) => {
   const total = Object.keys(db.users).length;
   const paid = Object.values(db.users).filter(u => u.is_paid).length;
   ctx.reply(
-    `📊 **Stats**\n\n👤 Total: ${total}\n💰 Paid: ${paid}\n📖 Free: ${total - paid}\n📁 Books: (use /bookcount for details)`,
+    `📊 **Stats**\n\n👤 Total: ${total}\n💰 Paid: ${paid}\n📖 Free: ${total - paid}`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -532,10 +532,13 @@ bot.command('backup', (ctx) => {
 });
 
 // ==========================================
-// 9. CATEGORY ROUTING
+// 9. ALL CATEGORIES
 // ==========================================
 const allCategories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
 
+// ==========================================
+// 10. CATEGORY HANDLER (FIXED)
+// ==========================================
 bot.action(/^cat_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const catKey = ctx.match[1];
@@ -544,19 +547,25 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
     return ctx.answerCbQuery("ምንም መጽሐፍ የለም", { show_alert: true });
   }
   const buttons = books.map((book, index) => [
-    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${catKey}_${book.id}`)
+    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.id}`)  // ← FIXED: only book.id
   ]);
   buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
   ctx.editMessageText("መጽሐፍ ይምረጡ:", Markup.inlineKeyboard(buttons));
 });
 
-bot.action(/^gb_(.+)_(.+)$/, async (ctx) => {
+// ==========================================
+// 11. BOOK HANDLER (FIXED)
+// ==========================================
+bot.action(/^gb_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  const catKey = ctx.match[1];
-  const bookId = ctx.match[2];
+  const bookId = ctx.match[1];
+  console.log(`📖 Book clicked: ID = "${bookId}"`);
   const book = await getBook(bookId);
-  if (!book) return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
+  if (!book) {
+    console.log(`❌ Book not found: "${bookId}"`);
+    return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
+  }
 
   if (!isPaidUser(userId)) {
     return ctx.reply(
@@ -573,7 +582,7 @@ bot.action(/^gb_(.+)_(.+)$/, async (ctx) => {
       {
         parse_mode: 'Markdown',
         ...Markup.inlineKeyboard([
-          [Markup.button.callback("👁 Preview", `preview_${catKey}_${bookId}`)]
+          [Markup.button.callback("👁 Preview", `preview_${book.id}`)]
         ])
       }
     );
@@ -583,17 +592,19 @@ bot.action(/^gb_(.+)_(.+)$/, async (ctx) => {
     caption: `📖 ${book.title}\n\nመልካም ንባብ! 📚✨`,
     protect_content: true
   }).then(() => {
-    trackDownload(userId, catKey, bookId);
+    trackDownload(userId, book.category, book.id);
   }).catch((error) => {
     console.error('Error sending book:', error);
     ctx.reply(`❌ Error sending book. Try again later.`);
   });
 });
 
-bot.action(/^preview_(.+)_(.+)$/, async (ctx) => {
+// ==========================================
+// 12. PREVIEW HANDLER (FIXED)
+// ==========================================
+bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  const catKey = ctx.match[1];
-  const bookId = ctx.match[2];
+  const bookId = ctx.match[1];
   const book = await getBook(bookId);
   if (!book) return ctx.reply("❌ መጽሐፉ አልተገኘም።");
 
@@ -606,193 +617,36 @@ bot.action(/^preview_(.+)_(.+)$/, async (ctx) => {
   ctx.reply(previewText, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
-      [Markup.button.callback("📖 Read Full Book", `gb_${catKey}_${bookId}`)],
-      [Markup.button.callback("⬅️ Go Back", `cat_${catKey}`)]
+      [Markup.button.callback("📖 Read Full Book", `gb_${book.id}`)],
+      [Markup.button.callback("⬅️ Go Back", `cat_${book.category}`)]
     ])
   });
 });
 
 // ==========================================
-// 10. TEXT HANDLER (FIXED!)
+// 13. RETRY HANDLER (FIXED)
 // ==========================================
-bot.on('text', async (ctx) => {
-  const userId = ctx.from.id;
-  const text = ctx.message.text;
-  console.log(`📝 Message from ${userId}: "${text}"`);
-  logActivity(userId, 'text_received', { text });
-
-  // ---- CANCEL ----
-  if (text === '/cancel' && addBookSessions[userId]) {
-    delete addBookSessions[userId];
-    return ctx.reply("❌ Cancelled.");
-  }
-
-  // ---- ADD BOOK FLOW ----
-  if (addBookSessions[userId]) {
-    const session = addBookSessions[userId];
-
-    if (session.step === 'title') {
-      session.title = text.trim();
-      session.step = 'preview';
-      session.preview = '';
-      return ctx.reply(
-        `✅ Title: \`${session.title}\`\n\n📄 **Step 2: Enter Preview**\n\n✏️ Type preview. Type \`/done\` when finished.`,
-        { parse_mode: 'Markdown' }
-      );
-    }
-
-    if (session.step === 'preview') {
-      if (text === '/done') {
-        if (!session.preview || session.preview.trim().length < 10) {
-          return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
-        }
-        session.step = 'category';
-        const categories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
-        const buttons = [];
-        for (let i = 0; i < categories.length; i += 2) {
-          const row = [];
-          row.push(Markup.button.callback(categories[i], `addcat_${categories[i]}`));
-          if (i+1 < categories.length) row.push(Markup.button.callback(categories[i+1], `addcat_${categories[i+1]}`));
-          buttons.push(row);
-        }
-        buttons.push([Markup.button.callback("❌ Cancel", "cancel_add_book")]);
-        return ctx.reply(`✅ Preview saved!\n\n📂 **Step 3: Select Category**`, Markup.inlineKeyboard(buttons));
-      }
-      if (!session.preview) session.preview = text;
-      else session.preview += '\n\n' + text;
-      const wordCount = session.preview.split(' ').length;
-      return ctx.reply(`📄 Updated! (${wordCount} words) Type /done when finished.`);
-    }
-
-    if (session.step === 'file') {
-      return ctx.reply("📤 Please send the book file (PDF, photo, video, etc.) to complete.");
-    }
-
-    // ---- REMOVE BOOK FLOW ----
-    if (session.step === 'remove_waiting') {
-      const bookId = text.trim();
-      const book = await getBook(bookId);
-      if (!book) {
-        return ctx.reply(`❌ Book with ID \`${bookId}\` not found.`, { parse_mode: 'Markdown' });
-      }
-      session.remove_book_id = bookId;
-      session.step = 'remove_confirm';
-      return ctx.reply(
-        `📖 **Found:**\n\nTitle: ${book.title}\nCategory: ${book.category}\nID: ${book.id}\n\n❓ Are you sure you want to delete this book?\nType **yes** to confirm or **no** to cancel.`
-      );
-    }
-
-    if (session.step === 'remove_confirm') {
-      if (text.toLowerCase() === 'yes') {
-        const bookId = session.remove_book_id;
-        const result = await removeBook(bookId);
-        if (result) {
-          delete addBookSessions[userId];
-          return ctx.reply(`✅ Book \`${bookId}\` has been removed.`);
-        } else {
-          return ctx.reply(`❌ Failed to remove book. Please try again.`);
-        }
-      } else {
-        delete addBookSessions[userId];
-        return ctx.reply("❌ Removal cancelled.");
-      }
-    }
-
-    // ---- ORDER BOOK FLOW ----
-    if (session.step === 'order_waiting') {
-      const parts = text.trim().split(/\s+/);
-      if (parts.length < 2) {
-        const category = parts[0];
-        if (!category) return ctx.reply("❌ Please enter: `category id1 id2 id3 ...`");
-        const books = await getBooks(category);
-        if (!books || books.length === 0) return ctx.reply(`❌ Category \`${category}\` has no books.`);
-        let msg = `📚 **Current order for ${category}:**\n\n`;
-        books.forEach((b, i) => {
-          msg += `${i+1}. ${b.title} (ID: ${b.id})\n`;
-        });
-        return ctx.reply(msg, { parse_mode: 'Markdown' });
-      }
-      const category = parts[0];
-      const orderedIds = parts.slice(1);
-      const books = await getBooks(category);
-      if (!books || books.length === 0) return ctx.reply(`❌ Category \`${category}\` not found or empty.`);
-      const allIds = books.map(b => b.id);
-      const missing = orderedIds.filter(id => !allIds.includes(id));
-      if (missing.length > 0) {
-        return ctx.reply(`❌ These IDs are not in category \`${category}\`: ${missing.join(', ')}`);
-      }
-      if (orderedIds.length !== books.length) {
-        return ctx.reply(`⚠️ You provided ${orderedIds.length} IDs, but category has ${books.length} books. Please include all books.`);
-      }
-      const success = await reorderBooks(category, orderedIds);
-      if (success) {
-        delete addBookSessions[userId];
-        return ctx.reply(`✅ Books in \`${category}\` have been reordered.`);
-      } else {
-        return ctx.reply(`❌ Failed to reorder. Please try again.`);
-      }
-    }
-
-    delete addBookSessions[userId];
-    return ctx.reply("❌ Session corrupted. Please start again.");
-  }
-
-  // ---- SKIP COMMANDS & BUTTON TEXTS ----
-  if (text.startsWith('/')) return;
-  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 አግኙኝ', '💬 አስተያየት', '📊 ስታቲስቲክስ', '🔄 ዳግም ጀምር'].includes(text)) return;
-
-  // ---- SEARCH ----
-  const query = text.trim().toLowerCase();
-  let matches = [];
-  for (const cat of allCategories) {
-    const books = await getBooks(cat);
-    if (books) {
-      for (const book of books) {
-        if (book.title.toLowerCase().includes(query)) {
-          matches.push({ ...book, catKey: cat });
-        }
-      }
-    }
-  }
-
-  if (matches.length === 0) return ctx.reply(`🔍 No results for "${text}"`);
-  const buttons = matches.slice(0, 20).map((book, index) => [
-    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.catKey}_${book.id}`)
-  ]);
-  ctx.reply(`🔍 ${matches.length} results:`, Markup.inlineKeyboard(buttons));
-});
-
-// ==========================================
-// 11. ADD CATEGORY BUTTON (for addbook flow)
-// ==========================================
-bot.action(/^addcat_(.+)$/, (ctx) => {
+bot.action(/^retry_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  const category = ctx.match[1];
-  if (!isAdmin(userId)) return ctx.answerCbQuery("⛔ Admin only!", { show_alert: true });
-  if (!addBookSessions[userId]) return ctx.answerCbQuery("⚠️ /addbook first!", { show_alert: true });
-  const session = addBookSessions[userId];
-  session.category = category;
-  session.step = 'file';
-  ctx.editMessageText(
-    `✅ Category: \`${category}\`\n\n📎 **Step 4: Send the Book File**\n\n📤 Please send the book file (PDF, photo, video, etc.) to complete.\n\n💡 This is the final step!`,
-    { parse_mode: 'Markdown' }
-  );
-});
+  const bookId = ctx.match[1];
+  const book = await getBook(bookId);
+  if (!book) return ctx.reply("❌ መጽሐፉ አልተገኘም።");
+  if (!isPaidUser(userId)) return ctx.reply("⛔ ክፍያ አልፈጸሙም።");
 
-bot.action('cancel_add_book', (ctx) => {
-  if (!checkRateLimitCallback(ctx)) return;
-  const userId = ctx.from.id;
-  if (addBookSessions[userId]) {
-    delete addBookSessions[userId];
-    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
-  } else {
-    ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
-  }
+  ctx.replyWithDocument(book.file_id, {
+    caption: `📖 ${book.title}\n\nመልካም ንባብ! 📚✨`,
+    protect_content: true
+  }).then(() => {
+    trackDownload(userId, book.category, book.id);
+    ctx.reply("✅ መጽሐፉ በተሳካ ሁኔታ ተላከ!");
+  }).catch(() => {
+    ctx.reply("❌ እንደገና አልተሳካም። እባክዎትን በኋላ ይሞክሩ።");
+  });
 });
 
 // ==========================================
-// 12. SUB-MENU ACTIONS
+// 14. SUB-MENU ACTIONS
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1009,7 +863,36 @@ bot.action("back_to_lang", (ctx) => {
 });
 
 // ==========================================
-// 13. ADMIN ACTIONS (Approve/Reject)
+// 15. ADD CATEGORY BUTTON (for addbook flow)
+// ==========================================
+bot.action(/^addcat_(.+)$/, (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  const category = ctx.match[1];
+  if (!isAdmin(userId)) return ctx.answerCbQuery("⛔ Admin only!", { show_alert: true });
+  if (!addBookSessions[userId]) return ctx.answerCbQuery("⚠️ /addbook first!", { show_alert: true });
+  const session = addBookSessions[userId];
+  session.category = category;
+  session.step = 'file';
+  ctx.editMessageText(
+    `✅ Category: \`${category}\`\n\n📎 **Step 4: Send the Book File**\n\n📤 Please send the book file (PDF, photo, video, etc.) to complete.\n\n💡 This is the final step!`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.action('cancel_add_book', (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  if (addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
+  } else {
+    ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
+  }
+});
+
+// ==========================================
+// 16. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
 bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1031,7 +914,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 14. FILE HANDLER
+// 17. FILE HANDLER
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1064,11 +947,15 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     const fileInfo = extractFileInfo(message);
     if (!fileInfo) return ctx.reply("❌ የፋይሉ መረጃ አልተገኘም።");
     const category = session.category;
-    const books = await getBooks(category);
-    const maxId = books.reduce((max, b) => {
-      const num = parseInt(b.id.split('_').pop());
+    
+    // Get existing books in this category
+    const existingBooks = await getBooks(category);
+    const maxId = existingBooks.reduce((max, b) => {
+      const parts = b.id.split('_');
+      const num = parseInt(parts[parts.length - 1]);
       return num > max ? num : max;
     }, 0);
+    
     const newId = `${category}_${maxId + 1}`;
     const newBook = {
       id: newId,
@@ -1077,11 +964,12 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
       title: session.title,
       preview: session.preview || 'Preview not available'
     };
+    
     const result = await addBook(newBook);
     if (result) {
       delete addBookSessions[userId];
       ctx.reply(
-        `✅ **Book Added!** 📚\n\n📂 ${category}\n🆔 ID: ${newId}\n📄 ${session.title}\n📊 Total: ${(await getBooks(category)).length} books`,
+        `✅ **Book Added!** 📚\n\n📂 ${category}\n🆔 ID: ${newId}\n📄 ${session.title}`,
         { parse_mode: 'Markdown' }
       );
       logActivity(userId, 'add_book', { category, bookId: newId, title: session.title });
@@ -1141,14 +1029,164 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ==========================================
-// 15. SEARCH (button handler)
+// 18. SEARCH (button handler)
 // ==========================================
 bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("🔍 እባክዎን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 // ==========================================
-// 16. LAUNCH
+// 19. TEXT HANDLER (FIXED)
+// ==========================================
+bot.on('text', async (ctx) => {
+  const userId = ctx.from.id;
+  const text = ctx.message.text;
+  console.log(`📝 Message from ${userId}: "${text}"`);
+  logActivity(userId, 'text_received', { text });
+
+  // ---- CANCEL ----
+  if (text === '/cancel' && addBookSessions[userId]) {
+    delete addBookSessions[userId];
+    return ctx.reply("❌ Cancelled.");
+  }
+
+  // ---- ADD BOOK FLOW ----
+  if (addBookSessions[userId]) {
+    const session = addBookSessions[userId];
+
+    if (session.step === 'title') {
+      session.title = text.trim();
+      session.step = 'preview';
+      session.preview = '';
+      return ctx.reply(
+        `✅ Title: \`${session.title}\`\n\n📄 **Step 2: Enter Preview**\n\n✏️ Type preview. Type \`/done\` when finished.`,
+        { parse_mode: 'Markdown' }
+      );
+    }
+
+    if (session.step === 'preview') {
+      if (text === '/done') {
+        if (!session.preview || session.preview.trim().length < 10) {
+          return ctx.reply("⚠️ Preview too short! Please write at least 10 characters.");
+        }
+        session.step = 'category';
+        const categories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
+        const buttons = [];
+        for (let i = 0; i < categories.length; i += 2) {
+          const row = [];
+          row.push(Markup.button.callback(categories[i], `addcat_${categories[i]}`));
+          if (i+1 < categories.length) row.push(Markup.button.callback(categories[i+1], `addcat_${categories[i+1]}`));
+          buttons.push(row);
+        }
+        buttons.push([Markup.button.callback("❌ Cancel", "cancel_add_book")]);
+        return ctx.reply(`✅ Preview saved!\n\n📂 **Step 3: Select Category**`, Markup.inlineKeyboard(buttons));
+      }
+      if (!session.preview) session.preview = text;
+      else session.preview += '\n\n' + text;
+      const wordCount = session.preview.split(' ').length;
+      return ctx.reply(`📄 Updated! (${wordCount} words) Type /done when finished.`);
+    }
+
+    if (session.step === 'file') {
+      return ctx.reply("📤 Please send the book file (PDF, photo, video, etc.) to complete.");
+    }
+
+    // ---- REMOVE BOOK FLOW ----
+    if (session.step === 'remove_waiting') {
+      const bookId = text.trim();
+      const book = await getBook(bookId);
+      if (!book) {
+        return ctx.reply(`❌ Book with ID \`${bookId}\` not found.`, { parse_mode: 'Markdown' });
+      }
+      session.remove_book_id = bookId;
+      session.step = 'remove_confirm';
+      return ctx.reply(
+        `📖 **Found:**\n\nTitle: ${book.title}\nCategory: ${book.category}\nID: ${book.id}\n\n❓ Are you sure you want to delete this book?\nType **yes** to confirm or **no** to cancel.`
+      );
+    }
+
+    if (session.step === 'remove_confirm') {
+      if (text.toLowerCase() === 'yes') {
+        const bookId = session.remove_book_id;
+        const result = await removeBook(bookId);
+        if (result) {
+          delete addBookSessions[userId];
+          return ctx.reply(`✅ Book \`${bookId}\` has been removed.`);
+        } else {
+          return ctx.reply(`❌ Failed to remove book. Please try again.`);
+        }
+      } else {
+        delete addBookSessions[userId];
+        return ctx.reply("❌ Removal cancelled.");
+      }
+    }
+
+    // ---- ORDER BOOK FLOW ----
+    if (session.step === 'order_waiting') {
+      const parts = text.trim().split(/\s+/);
+      if (parts.length < 2) {
+        const category = parts[0];
+        if (!category) return ctx.reply("❌ Please enter: `category id1 id2 id3 ...`");
+        const books = await getBooks(category);
+        if (!books || books.length === 0) return ctx.reply(`❌ Category \`${category}\` has no books.`);
+        let msg = `📚 **Current order for ${category}:**\n\n`;
+        books.forEach((b, i) => {
+          msg += `${i+1}. ${b.title} (ID: ${b.id})\n`;
+        });
+        return ctx.reply(msg, { parse_mode: 'Markdown' });
+      }
+      const category = parts[0];
+      const orderedIds = parts.slice(1);
+      const books = await getBooks(category);
+      if (!books || books.length === 0) return ctx.reply(`❌ Category \`${category}\` not found or empty.`);
+      const allIds = books.map(b => b.id);
+      const missing = orderedIds.filter(id => !allIds.includes(id));
+      if (missing.length > 0) {
+        return ctx.reply(`❌ These IDs are not in category \`${category}\`: ${missing.join(', ')}`);
+      }
+      if (orderedIds.length !== books.length) {
+        return ctx.reply(`⚠️ You provided ${orderedIds.length} IDs, but category has ${books.length} books. Please include all books.`);
+      }
+      const success = await reorderBooks(category, orderedIds);
+      if (success) {
+        delete addBookSessions[userId];
+        return ctx.reply(`✅ Books in \`${category}\` have been reordered.`);
+      } else {
+        return ctx.reply(`❌ Failed to reorder. Please try again.`);
+      }
+    }
+
+    delete addBookSessions[userId];
+    return ctx.reply("❌ Session corrupted. Please start again.");
+  }
+
+  // ---- SKIP COMMANDS & BUTTON TEXTS ----
+  if (text.startsWith('/')) return;
+  if (['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ', '📞 አግኙኝ', '💬 አስተያየት', '📊 ስታቲስቲክስ', '🔄 ዳግም ጀምር'].includes(text)) return;
+
+  // ---- SEARCH ----
+  const query = text.trim().toLowerCase();
+  let matches = [];
+  for (const cat of allCategories) {
+    const books = await getBooks(cat);
+    if (books) {
+      for (const book of books) {
+        if (book.title.toLowerCase().includes(query)) {
+          matches.push({ ...book, catKey: cat });
+        }
+      }
+    }
+  }
+
+  if (matches.length === 0) return ctx.reply(`🔍 No results for "${text}"`);
+  const buttons = matches.slice(0, 20).map((book, index) => [
+    Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.id}`)
+  ]);
+  ctx.reply(`🔍 ${matches.length} results:`, Markup.inlineKeyboard(buttons));
+});
+
+// ==========================================
+// 20. LAUNCH
 // ==========================================
 async function launchBot() {
   try {
