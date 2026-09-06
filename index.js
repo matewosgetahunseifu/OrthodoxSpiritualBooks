@@ -12,9 +12,9 @@ const ADMIN_IDS = [7480368503];
 const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
 const ADMIN_EMAIL = "matewosgetahunseifu@gmail.com";
 const PORT = process.env.PORT || 3000;
-// Increased rate limit to prevent "Unresponsive" button issues
-const RATE_LIMIT = 60; 
+const RATE_LIMIT = 30;
 const RATE_WINDOW = 60 * 1000;
+const PREVIEW_PAGES = 25;
 
 // Supabase config
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -148,6 +148,7 @@ function saveLocalDatabase() {
       userActivity: db ? db.userActivity : {},
       books: booksDatabase
     }, null, 2), 'utf8');
+    console.log('✅ Local database saved');
   } catch (e) { console.log('❌ Local DB save error:', e.message); }
 }
 
@@ -160,27 +161,6 @@ if (supabase) {
   db = loadLocalDatabase();
 }
 
-// --- Load users from Supabase at startup ---
-async function loadUsersFromSupabase() {
-  if (!supabase) return;
-  const { data, error } = await supabase.from('users').select('*');
-  if (error) {
-    console.error('Error loading users from Supabase:', error);
-    return;
-  }
-  data.forEach(user => {
-    db.users[user.id] = {
-      username: user.username,
-      is_paid: user.is_paid,
-      registration_date: user.registration_date,
-      preferred_language: user.preferred_language,
-      total_downloads: user.total_downloads || 0,
-      books_downloaded: user.books_downloaded || []
-    };
-  });
-  console.log(`✅ Loaded ${data.length} users from Supabase.`);
-}
-
 // --- Public functions ---
 async function getBooks(category) {
   if (supabase) {
@@ -191,6 +171,7 @@ async function getBooks(category) {
 }
 
 async function getBook(id) {
+  console.log(`🔍 Looking for book with ID: "${id}"`);
   if (supabase) {
     return await supabaseGetBook(id);
   }
@@ -248,17 +229,14 @@ async function reorderBooks(category, orderedIds) {
 const addBookSessions = {};
 
 // ==========================================
-// 6. OTHER HELPERS (UPDATED)
+// 6. OTHER HELPERS
 // ==========================================
 function isAdmin(userId) { return ADMIN_IDS.includes(userId); }
-
 function isPaidUser(userId) {
   if (isAdmin(userId)) return true;
-  if (db.users[userId] && db.users[userId].is_paid === true) return true;
-  return false;
+  return db.users[userId] && db.users[userId].is_paid === true;
 }
-
-async function registerUser(from) {
+function registerUser(from) {
   if (!db.users[from.id]) {
     db.users[from.id] = {
       username: from.username ? `@${from.username}` : "No Username",
@@ -268,41 +246,18 @@ async function registerUser(from) {
       total_downloads: 0,
       books_downloaded: []
     };
-    if (supabase) {
-      const { error } = await supabase
-        .from('users')
-        .upsert({
-          id: from.id,
-          username: from.username ? `@${from.username}` : "No Username",
-          is_paid: false,
-          registration_date: new Date().toISOString(),
-          preferred_language: null,
-          total_downloads: 0,
-          books_downloaded: []
-        }, { onConflict: 'id' });
-      if (error) console.error('Error upserting user to Supabase:', error);
-    }
     if (!supabase) saveLocalDatabase();
     logActivity(from.id, 'register', { username: from.username });
     return true;
   }
   return false;
 }
-
-async function markUserPaid(userId) {
+function markUserPaid(userId) {
   if (!db.users[userId]) db.users[userId] = { is_paid: true };
   else db.users[userId].is_paid = true;
-  if (supabase) {
-    const { error } = await supabase
-      .from('users')
-      .update({ is_paid: true })
-      .eq('id', userId);
-    if (error) console.error('Error updating user paid status:', error);
-  }
   if (!supabase) saveLocalDatabase();
   logActivity(userId, 'payment_approved', { status: 'paid' });
 }
-
 function trackDownload(userId, catKey, bookId) {
   if (!db.users[userId]) return;
   db.users[userId].total_downloads = (db.users[userId].total_downloads || 0) + 1;
@@ -314,20 +269,9 @@ function trackDownload(userId, catKey, bookId) {
   if (!db.bookStats) db.bookStats = {};
   if (!db.bookStats[bookKey]) db.bookStats[bookKey] = 0;
   db.bookStats[bookKey]++;
-  if (supabase) {
-    supabase
-      .from('users')
-      .update({
-        total_downloads: db.users[userId].total_downloads,
-        books_downloaded: db.users[userId].books_downloaded
-      })
-      .eq('id', userId)
-      .then(({ error }) => { if (error) console.error('Error updating user stats:', error); });
-  }
   if (!supabase) saveLocalDatabase();
   logActivity(userId, 'download_book', { catKey, bookId });
 }
-
 function getUserStats(userId) {
   const user = db.users[userId];
   if (!user) return null;
@@ -371,7 +315,7 @@ function checkRateLimit(userId) {
 function checkRateLimitCallback(ctx) {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) {
-    ctx.answerCbQuery("⏳ እባክዎትን ትንሽ ይጠብቁ! (60/ደቂቃ)");
+    ctx.answerCbQuery("⏳ እባክዎትን ትንሽ ይጠብቁ! (30/ደቂቃ)");
     return false;
   }
   return true;
@@ -381,14 +325,6 @@ function checkRateLimitCallback(ctx) {
 // 8. ALL CATEGORIES
 // ==========================================
 const allCategories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
-
-// Category Display Names
-const categoryNames = {
-  'geez_law': 'ሕግና ሥርዓት', 'geez_hist': 'ታሪክና ድርሳናት', 'geez_gdsl': 'ግድስላዊ ትምህርት', 'geez_ot': 'ብሉይ ኪዳን', 'geez_nt': 'ሐዲስ ኪዳን',
-  'ga_law': 'ሕግና ሥርዓት', 'ga_hist': 'ታሪክና ድርሳናት', 'ga_gdsl': 'ግድስላዊ ትምህርት', 'ga_ot': 'ብሉይ ኪዳን', 'ga_nt': 'ሐዲስ ኪዳን',
-  'amh_law': 'ሕግና ሥርዓት', 'amh_hist': 'ታሪክና ድርሳናት', 'amh_gdsl': 'ግድስላዊ ትምህርት', 'amh_eth': 'ክርስቲያናዊ ሥነ ምግባር', 'amh_ot': 'ብሉይ ኪዳን', 'amh_nt': 'ሐዲስ ኪዳን', 'amh_std': 'ጥናት', 'amh_chr': 'ክርስትና', 'amh_mry': 'ማርያም', 'amh_snt': 'ሥነ ትምህርት', 'amh_thl': 'ነገረ ሃይማኖት',
-  'eng_law': 'Law & Order', 'eng_hist': 'History & Discourse', 'eng_eth': 'Christian Ethics', 'eng_ot': 'Old Testament', 'eng_nt': 'New Testament', 'eng_gdsl': 'Doctrine', 'eng_std': 'Study', 'eng_chr': 'Christianity', 'eng_mry': 'Mary', 'eng_snt': 'Theology', 'eng_thl': 'Dogma'
-};
 
 // ==========================================
 // 9. MAIN KEYBOARD
@@ -402,10 +338,10 @@ const mainKeyboard = Markup.keyboard([
 // ==========================================
 // 10. START COMMAND (FRIENDLY VERSION)
 // ==========================================
-bot.start(async (ctx) => {
+bot.start((ctx) => {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  await registerUser(ctx.from);
+  registerUser(ctx.from);
   const user = db.users[userId];
   
   let msg = "እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ! 📚✨\n\n";
@@ -419,14 +355,14 @@ bot.start(async (ctx) => {
 });
 
 // ==========================================
-// 11. MAIN KEYBOARD HANDLERS (ALL FIXED)
+// 11. MAIN KEYBOARD HANDLERS (ALL WORKING)
 // ==========================================
 
 // 📚 Books button
-bot.hears('📚 መጽሐፍት', async (ctx) => {
+bot.hears('📚 መጽሐፍት', (ctx) => {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  await registerUser(ctx.from); // <--- FIXED: Added await
+  registerUser(ctx.from);
   const user = db.users[userId];
   
   if (user.preferred_language) {
@@ -557,7 +493,7 @@ bot.command('help', (ctx) => {
   );
 });
 
-// 📚 BOOKCOUNT COMMAND
+// 📚 BOOKCOUNT COMMAND (FIXED)
 bot.command('bookcount', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   try {
@@ -589,7 +525,7 @@ bot.command('bookcount', async (ctx) => {
   }
 });
 
-// 🏆 POPULAR COMMAND (FIXED ID PARSING)
+// 🏆 POPULAR COMMAND
 bot.command('popular', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   if (!db.bookStats || Object.keys(db.bookStats).length === 0) {
@@ -598,17 +534,17 @@ bot.command('popular', async (ctx) => {
   const sorted = Object.entries(db.bookStats).sort((a, b) => b[1] - a[1]).slice(0, 5);
   let msg = '🏆 *በብዛት የተወረዱ መጽሐፍት*\n\n';
   for (const [key, count] of sorted) {
-    // FIXED: The key is the full ID (e.g., amh_law_1)
-    const book = await getBook(key); 
+    const [cat, id] = key.split('_');
+    const book = await getBook(id);
     if (book) {
-      msg += `• ${book.title} (${book.category}) – ${count} ውርዶች\n`;
+      msg += `• ${book.title} (${cat}) – ${count} ውርዶች\n`;
     }
   }
   msg += `\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
   ctx.reply(msg, { parse_mode: 'Markdown' });
 });
 
-// 🎲 RANDOM COMMAND
+// 🎲 RANDOM COMMAND (FIXED)
 bot.command('random', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   try {
@@ -717,7 +653,7 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// 💾 BACKUP COMMAND
+// 💾 BACKUP COMMAND (FIXED)
 bot.command('backup', async (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) {
@@ -741,7 +677,7 @@ bot.command('backup', async (ctx) => {
 });
 
 // ==========================================
-// 13. CATEGORY HANDLER
+// 13. CATEGORY HANDLER (FIXED)
 // ==========================================
 bot.action(/^cat_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -758,7 +694,7 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 14. BOOK HANDLER (SHOWS PREVIEW)
+// 14. BOOK HANDLER (FIXED – SHOWS PREVIEW FOR ALL USERS)
 // ==========================================
 bot.action(/^gb_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -769,12 +705,12 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
     return ctx.answerCbQuery("መጽሐፉ አልተገኘም", { show_alert: true });
   }
 
+  // Get the preview content
   const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
   const previewText = `📖 *${book.title}*\n\n📄 *ቅድመ እይታ*\n\n${previewContent}\n\n━━━━━━━━━━━━━━━━━━━━━\n`;
 
-  const paid = isPaidUser(userId);
-
-  if (!paid) {
+  // For non-paid users: show preview + payment info
+  if (!isPaidUser(userId)) {
     return ctx.reply(
       `${previewText}` +
       `🔒 ይህ መጽሐፍ የተቆለፈ ነው። *200 ብር* አንድ ጊዜ በመክፈል ሁሉንም መጽሐፍት ይክፈቱ።\n\n` +
@@ -785,7 +721,6 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
       `• ቴሌብር (Telebirr): 0943910036\n\n` +
       `👤 የአካውንት ስም: Matewos Getahun Seifu\n\n` +
       `📸 ከክፍያ በኋላ ሪሲቱን (ፎቶ ወይም ፒዲኤፍ) ወደዚህ ቦት ይላኩ።\n\n` +
-      `👁 ከስር ያለውን ቁልፍ በመጫን የቅድመ እይታ ፋይሎችን ይመልከቱ።\n\n` +
       `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
       {
         parse_mode: 'Markdown',
@@ -796,6 +731,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
     );
   }
 
+  // For paid users: show preview + download button
   return ctx.reply(
     `${previewText}` +
     `✅ ክፍያ ፈጽመዋል! መጽሐፉን ሙሉ በሙሉ ማውረድ ይችላሉ።\n\n` +
@@ -834,17 +770,12 @@ bot.action(/^download_(.+)$/, async (ctx) => {
     trackDownload(userId, book.category, book.id);
   }).catch((error) => {
     console.error('Error sending book:', error);
-    // FIXED: Added retry button so the user can try again
-    ctx.reply(`❌ መጽሐፉን መላክ አልተሳካም። እባክዎትን እንደገና ይሞክሩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
-      Markup.inlineKeyboard([
-        [Markup.button.callback("🔄 እንደገና ሞክር", `retry_${book.id}`)]
-      ])
-    );
+    ctx.reply(`❌ መጽሐፉን መላክ አልተሳካም። እባክዎትን እንደገና ይሞክሩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
   });
 });
 
 // ==========================================
-// 16. PREVIEW HANDLER (SENDS PREVIEW FILES)
+// 16. PREVIEW HANDLER (FIXED – SHOWS PREVIEW FILES TOO)
 // ==========================================
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -879,22 +810,20 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
     ])
   });
 
-  // Send each preview file as a separate document
+  // Send preview files as separate messages or media group
   if (previewFiles.length > 0) {
     for (const fileId of previewFiles) {
       try {
         await ctx.replyWithDocument(fileId, { caption: `📎 ቅድመ እይታ ፋይል` });
       } catch (e) {
         console.error('Error sending preview file:', e);
-        // FIXED: Tells the user why the file wasn't sent
-        await ctx.reply(`❌ አንድ የቅድመ እይታ ፋይል መላክ አልተሳካም። (File ID might be expired)`);
       }
     }
   }
 });
 
 // ==========================================
-// 17. RETRY HANDLER
+// 17. RETRY HANDLER (FIXED)
 // ==========================================
 bot.action(/^retry_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -911,68 +840,20 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
     trackDownload(userId, book.category, book.id);
     ctx.reply("✅ መጽሐፉ በተሳካ ሁኔታ ተላከ!\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }).catch(() => {
-    ctx.reply("❌ እንደገና አልተሳካም። እባክዎትን በኋላ ይሞክሩ።", Markup.inlineKeyboard([
-        [Markup.button.callback("🔄 እንደገና ሞክር", `retry_${book.id}`)]
-      ]));
+    ctx.reply("❌ እንደገና አልተሳካም። እባክዎትን በኋላ ይሞክሩ።");
   });
 });
 
 // ==========================================
-// 18. ADDED MISSING SUB-MENU ACTIONS (FIXED UNRESPONSIVE BUTTONS)
-// ==========================================
-bot.action(/^sub_(.+)$/, async (ctx) => {
-  if (!checkRateLimitCallback(ctx)) return;
-  const subKey = `sub_${ctx.match[1]}`;
-  let categories = [];
-  
-  if (subKey === 'sub_geez_hist') categories = ['geez_hist', 'geez_gdsl'];
-  else if (subKey === 'sub_geez_bible') categories = ['geez_ot', 'geez_nt'];
-  else if (subKey === 'sub_ga_hist') categories = ['ga_hist', 'ga_gdsl'];
-  else if (subKey === 'sub_ga_bible') categories = ['ga_ot', 'ga_nt'];
-  else if (subKey === 'sub_amh_hist') categories = ['amh_hist', 'amh_gdsl'];
-  else if (subKey === 'sub_amh_bible') categories = ['amh_ot', 'amh_nt'];
-  else if (subKey === 'sub_amh_theology') categories = ['amh_thl', 'amh_chr', 'amh_mry', 'amh_snt', 'amh_std'];
-  else if (subKey === 'sub_eng_hist') categories = ['eng_hist', 'eng_gdsl'];
-  else if (subKey === 'sub_eng_bible') categories = ['eng_ot', 'eng_nt'];
-  else if (subKey === 'sub_eng_theology') categories = ['eng_thl', 'eng_chr', 'eng_mry', 'eng_snt', 'eng_std'];
-  
-  if (categories.length === 0) {
-    return ctx.answerCbQuery("ምንም ምድብ የለም", { show_alert: true });
-  }
-  
-  const buttons = [];
-  for (let i = 0; i < categories.length; i += 2) {
-    const row = [];
-    row.push(Markup.button.callback(categoryNames[categories[i]] || categories[i], `cat_${categories[i]}`));
-    if (i + 1 < categories.length) {
-      row.push(Markup.button.callback(categoryNames[categories[i + 1]] || categories[i + 1], `cat_${categories[i + 1]}`));
-    }
-    buttons.push(row);
-  }
-  buttons.push([Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]);
-  
-  ctx.editMessageText("ይምረጡ:", Markup.inlineKeyboard(buttons));
-});
-
-// Added missing "Back" action
-bot.action('back_to_lang', (ctx) => {
-  if (!checkRateLimitCallback(ctx)) return;
-  ctx.editMessageText("እባኮን ቋንቋ ይምረጡ:", Markup.inlineKeyboard([
-    [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
-    [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
-    [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
-  ]));
-});
-
-// ==========================================
-// 19. LANGUAGE SELECTION (UPDATED)
+// 18. SUB-MENU ACTIONS (unchanged)
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  if (!db.users[userId]) db.users[userId] = { is_paid: false };
-  db.users[userId].preferred_language = "geez";
-  if (!supabase) saveLocalDatabase();
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "geez";
+    if (!supabase) saveLocalDatabase();
+  }
   ctx.editMessageText(
     "በግዕዝ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
@@ -984,12 +865,37 @@ bot.action("lang_geez", (ctx) => {
   );
 });
 
+bot.action("sub_geez_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_geez_hist")],
+      [Markup.button.callback("ገድል ተአምር ድርሳን", "cat_geez_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_geez")]
+    ])
+  );
+});
+
+bot.action("sub_geez_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_geez_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_geez_nt")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_geez")]
+    ])
+  );
+});
+
 bot.action("lang_ga", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  if (!db.users[userId]) db.users[userId] = { is_paid: false };
-  db.users[userId].preferred_language = "geez_amharic";
-  if (!supabase) saveLocalDatabase();
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "geez_amharic";
+    if (!supabase) saveLocalDatabase();
+  }
   ctx.editMessageText(
     "በግዕዝ አማርኛ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
@@ -1001,12 +907,37 @@ bot.action("lang_ga", (ctx) => {
   );
 });
 
+bot.action("sub_ga_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_ga_hist")],
+      [Markup.button.callback("ገድል ተአምር ድርሳን", "cat_ga_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_ga")]
+    ])
+  );
+});
+
+bot.action("sub_ga_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_ga_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_ga_nt")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_ga")]
+    ])
+  );
+});
+
 bot.action("lang_amh", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  if (!db.users[userId]) db.users[userId] = { is_paid: false };
-  db.users[userId].preferred_language = "amharic";
-  if (!supabase) saveLocalDatabase();
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "amharic";
+    if (!supabase) saveLocalDatabase();
+  }
   ctx.editMessageText(
     "በአማርኛ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
@@ -1020,12 +951,52 @@ bot.action("lang_amh", (ctx) => {
   );
 });
 
+bot.action("sub_amh_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_amh_hist")],
+      [Markup.button.callback("ድርሳን ተአምር ገድላት", "cat_amh_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
+bot.action("sub_amh_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_amh_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_amh_nt")],
+      [Markup.button.callback("መጽሐፍ ቅዱስ ጥናት", "cat_amh_std")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
+bot.action("sub_amh_theology", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከነገረ ሃይማኖት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ነገረ ክርስቶስ", "cat_amh_chr")],
+      [Markup.button.callback("ነገረ ማርያም", "cat_amh_mry")],
+      [Markup.button.callback("ነገረ ቅዱሳን", "cat_amh_snt")],
+      [Markup.button.callback("ነገረ ሃይማኖት", "cat_amh_thl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
 bot.action("lang_eng", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
-  if (!db.users[userId]) db.users[userId] = { is_paid: false };
-  db.users[userId].preferred_language = "english";
-  if (!supabase) saveLocalDatabase();
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "english";
+    if (!supabase) saveLocalDatabase();
+  }
   ctx.editMessageText(
     "Select category:",
     Markup.inlineKeyboard([
@@ -1039,8 +1010,59 @@ bot.action("lang_eng", (ctx) => {
   );
 });
 
+bot.action("sub_eng_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("History", "cat_eng_hist")],
+      [Markup.button.callback("Discourse & Miracles", "cat_eng_gdsl")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("sub_eng_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("Old Testament", "cat_eng_ot")],
+      [Markup.button.callback("New Testament", "cat_eng_nt")],
+      [Markup.button.callback("General Bible Study", "cat_eng_std")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("sub_eng_theology", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("Christology", "cat_eng_chr")],
+      [Markup.button.callback("Mariology", "cat_eng_mry")],
+      [Markup.button.callback("Hagiography", "cat_eng_snt")],
+      [Markup.button.callback("Theology", "cat_eng_thl")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("back_to_lang", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "እባኮን ቋንቋ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
+    ])
+  );
+});
+
 // ==========================================
-// 20. ADD CATEGORY BUTTON (for addbook flow)
+// 19. ADD CATEGORY BUTTON (for addbook flow)
 // ==========================================
 bot.action(/^addcat_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1069,16 +1091,15 @@ bot.action('cancel_add_book', (ctx) => {
 });
 
 // ==========================================
-// 21. ADMIN ACTIONS (Approve/Reject)
+// 20. ADMIN ACTIONS (Approve/Reject)
 // ==========================================
-bot.action(/^approve_(\d+)_(.+)$/, async (ctx) => {
+bot.action(/^approve_(\d+)_(.+)$/, (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   if (!isAdmin(ctx.from.id)) return ctx.answerCbQuery("⛔ Admin only!", { show_alert: true });
   const userId = parseInt(ctx.match[1]);
   const orderNumber = ctx.match[2];
-  await markUserPaid(userId);
+  markUserPaid(userId);
   ctx.telegram.sendMessage(userId, `✅ ክፍያ #${orderNumber} ጸድቋል! 🎉\n\nሁሉም መጽሐፍት ተከፍተዋል! መልካም ንባብ! 📚✨\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
-  // FIXED: Correct Amharic spelling for 'approved'
   ctx.editMessageText(`✅ #${orderNumber} ጸድቋል`);
 });
 
@@ -1092,7 +1113,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 22. FILE HANDLER (UPDATED)
+// 21. FILE HANDLER (UPDATED – handles preview files)
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1125,6 +1146,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     const fileInfo = extractFileInfo(message);
     if (!fileInfo) return ctx.reply("❌ የፋይሉ መረጃ አልተገኘም።");
     
+    // Add to preview files array
     if (!session.previewFiles) session.previewFiles = [];
     session.previewFiles.push(fileInfo.fileId);
     
@@ -1211,7 +1233,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
         {
           parse_mode: 'Markdown',
           ...Markup.inlineKeyboard([
-            [Markup.button.callback("✅ ጸድቋል", `approve_${userId}_${orderNumber}`)],
+            [Markup.button.callback("✅ ግድግድ", `approve_${userId}_${orderNumber}`)],
             [Markup.button.callback("❌ ውድቅ", `reject_${userId}_${orderNumber}`)]
           ])
         }
@@ -1225,23 +1247,12 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ==========================================
-// 23. TEXT HANDLER (WITH TYPO-TOLERANT SEARCH - OPTIMIZED)
+// 22. TEXT HANDLER (WITH TYPO-TOLERANT SEARCH)
 // ==========================================
-// Helper for faster fuzzy matching
-function normalizeWord(word) {
-    return word
-        .replace(/[ሀሐሓ]/g, 'ሀ')
-        .replace(/[አኣ]/g, 'አ')
-        .replace(/[ደዸ]/g, 'ደ')
-        .replace(/[ግጽ]/g, 'ግ')
-        .replace(/[ለሌ]/g, 'ለ')
-        .replace(/[ሙሚ]/g, 'ሙ')
-        .replace(/[ንኝ]/g, 'ን');
-}
-
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
+  console.log(`📝 Message from ${userId}: "${text}"`);
   logActivity(userId, 'text_received', { text });
 
   // ---- CANCEL ----
@@ -1271,6 +1282,7 @@ bot.on('text', async (ctx) => {
 
     if (session.step === 'preview') {
       if (text === '/done') {
+        // Check if there is at least some preview content (text or files)
         if ((!session.preview || session.preview.trim().length < 10) && (!session.previewFiles || session.previewFiles.length === 0)) {
           return ctx.reply("⚠️ እባክዎትን ቢያንስ ቅድመ እይታ ጽሑፍ (10 ፊደላት) ወይም አንድ ቅድመ እይታ ፋይል ይላኩ።");
         }
@@ -1279,8 +1291,8 @@ bot.on('text', async (ctx) => {
         const buttons = [];
         for (let i = 0; i < categories.length; i += 2) {
           const row = [];
-          row.push(Markup.button.callback(categoryNames[categories[i]] || categories[i], `addcat_${categories[i]}`));
-          if (i+1 < categories.length) row.push(Markup.button.callback(categoryNames[categories[i+1]] || categories[i+1], `addcat_${categories[i+1]}`));
+          row.push(Markup.button.callback(categories[i], `addcat_${categories[i]}`));
+          if (i+1 < categories.length) row.push(Markup.button.callback(categories[i+1], `addcat_${categories[i+1]}`));
           buttons.push(row);
         }
         buttons.push([Markup.button.callback("❌ ሰርዝ", "cancel_add_book")]);
@@ -1291,6 +1303,7 @@ bot.on('text', async (ctx) => {
           Markup.inlineKeyboard(buttons)
         );
       }
+      // Append preview text
       if (!session.preview) session.preview = text;
       else session.preview += '\n\n' + text;
       const wordCount = session.preview.split(' ').length;
@@ -1373,7 +1386,7 @@ bot.on('text', async (ctx) => {
   // ---- SKIP COMMANDS & BUTTON TEXTS ----
   if (text.startsWith('/')) return;
 
-  // ---- SEARCH (WITH TYPO TOLERANCE - OPTIMIZED) ----
+  // ---- SEARCH (WITH TYPO TOLERANCE) ----
   const query = text.trim().toLowerCase();
   let matches = [];
   const searchWords = query.split(' ').filter(w => w.length > 0);
@@ -1390,13 +1403,13 @@ bot.on('text', async (ctx) => {
         let isMatch = false;
         for (const sWord of searchWords) {
           for (const tWord of titleWords) {
-            // Fast check
             if (tWord.includes(sWord) || sWord.includes(tWord)) {
               isMatch = true;
               break;
             }
-            // Slower typo-tolerance check (only if fast fails)
-            if (normalizeWord(tWord).includes(normalizeWord(sWord)) || normalizeWord(sWord).includes(normalizeWord(tWord))) {
+            const normS = sWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
+            const normT = tWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
+            if (normT.includes(normS) || normS.includes(normT)) {
               isMatch = true;
               break;
             }
@@ -1434,13 +1447,9 @@ bot.on('text', async (ctx) => {
 });
 
 // ==========================================
-// 24. LAUNCH (with user loading)
+// 23. LAUNCH
 // ==========================================
 async function launchBot() {
-  if (supabase) {
-    await loadUsersFromSupabase();
-  }
-  
   try {
     await bot.launch({ dropPendingUpdates: true });
     console.log("✅ Bot is running...");
