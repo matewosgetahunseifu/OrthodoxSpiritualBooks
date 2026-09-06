@@ -96,7 +96,10 @@ async function supabaseAddBook(book) {
     .order('order', { ascending: false })
     .limit(1);
   const nextOrder = (existing && existing.length) ? existing[0].order + 1 : 1;
-  const { data, error } = await supabase.from('books').insert([{ ...book, order: nextOrder }]).select();
+  const { data, error } = await supabase
+    .from('books')
+    .insert([{ ...book, preview_files: book.preview_files || [], order: nextOrder }])
+    .select();
   if (error) { console.error('Supabase addBook error:', error); return null; }
   return data[0];
 }
@@ -301,9 +304,7 @@ function logError(type, error) {
 // ==========================================
 const userRequests = {};
 function checkRateLimit(userId) {
-  // Admins have unlimited access
   if (isAdmin(userId)) return true;
-  
   const now = Date.now();
   if (!userRequests[userId]) userRequests[userId] = [];
   userRequests[userId] = userRequests[userId].filter(t => now - t < RATE_WINDOW);
@@ -321,7 +322,7 @@ function checkRateLimitCallback(ctx) {
 }
 
 // ==========================================
-// 8. ALL CATEGORIES (must be defined early)
+// 8. ALL CATEGORIES
 // ==========================================
 const allCategories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
 
@@ -404,7 +405,6 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
       return;
     }
   }
-  // Otherwise show language picker
   ctx.reply("እባኮን ቋንቋ ይምረጡ:", Markup.inlineKeyboard([
     [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
     [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
@@ -418,7 +418,7 @@ bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
   ctx.reply("🔍 እባክዎትን የመጽሐፍ ስም ያስገቡ፦");
 });
 
-// 📞 Contact button (CLEAR VERSION)
+// 📞 Contact button
 bot.hears('📞 አግኙኝ', (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
   ctx.reply(
@@ -581,7 +581,7 @@ bot.command('addbook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
   if (addBookSessions[userId]) return ctx.reply("⚠️ አሁን መጽሐፍ እየጨመሩ ነው። /canceladd ይጠቀሙ።");
-  addBookSessions[userId] = { step: 'title' };
+  addBookSessions[userId] = { step: 'title', previewFiles: [] };
   ctx.reply(
     `📚 *አዲስ መጽሐፍ መጨመር*\n\n` +
     `**ደረጃ 1: የመጽሐፍ ርዕስ ያስገቡ**\n\n` +
@@ -656,12 +656,9 @@ bot.command('stats', (ctx) => {
 // 💾 BACKUP COMMAND (FIXED)
 bot.command('backup', async (ctx) => {
   const userId = ctx.from.id;
-  
-  // Check if admin
   if (!isAdmin(userId)) {
     return ctx.reply("⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
   }
-  
   try {
     const backupData = supabase ? { 
       message: "Using Supabase – run /bookcount for book list", 
@@ -669,7 +666,6 @@ bot.command('backup', async (ctx) => {
       pendingReceipts: db.pendingReceipts,
       bookStats: db.bookStats
     } : db;
-    
     await ctx.replyWithDocument({
       source: Buffer.from(JSON.stringify(backupData, null, 2), 'utf-8'),
       filename: `backup_${Date.now()}.json`
@@ -752,7 +748,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 15. DOWNLOAD HANDLER (NEW – for paid users)
+// 15. DOWNLOAD HANDLER (for paid users)
 // ==========================================
 bot.action(/^download_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -779,7 +775,7 @@ bot.action(/^download_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 16. PREVIEW HANDLER (FIXED – SHOWS ONLY YOUR PREVIEW TEXT)
+// 16. PREVIEW HANDLER (FIXED – SHOWS PREVIEW FILES TOO)
 // ==========================================
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -790,22 +786,40 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
   }
 
   const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
+  const previewFiles = book.preview_files || [];
 
   let previewText = `📖 *${book.title}*\n\n`;
   previewText += `📄 *ሙሉ ቅድመ እይታ*\n\n`;
   previewText += `${previewContent}\n\n`;
+  
+  if (previewFiles.length > 0) {
+    previewText += `📎 *የተያያዙ ፋይሎች:* ${previewFiles.length}\n\n`;
+  }
+  
   previewText += `━━━━━━━━━━━━━━━━━━━━━\n`;
   previewText += `🔒 ሙሉውን መጽሐፍ ለማንበብ ክፍያ ይፈጽሙ።\n`;
   previewText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
   previewText += `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
 
-  ctx.reply(previewText, {
+  // Send preview text first
+  await ctx.reply(previewText, {
     parse_mode: 'Markdown',
     ...Markup.inlineKeyboard([
       [Markup.button.callback("📖 ሙሉ መጽሐፍ አንብብ", `gb_${book.id}`)],
       [Markup.button.callback("⬅️ ተመለስ", `cat_${book.category}`)]
     ])
   });
+
+  // Send preview files as separate messages or media group
+  if (previewFiles.length > 0) {
+    for (const fileId of previewFiles) {
+      try {
+        await ctx.replyWithDocument(fileId, { caption: `📎 ቅድመ እይታ ፋይል` });
+      } catch (e) {
+        console.error('Error sending preview file:', e);
+      }
+    }
+  }
 });
 
 // ==========================================
@@ -831,7 +845,7 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
 });
 
 // ==========================================
-// 18. SUB-MENU ACTIONS
+// 18. SUB-MENU ACTIONS (unchanged)
 // ==========================================
 bot.action("lang_geez", (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
@@ -1060,7 +1074,7 @@ bot.action(/^addcat_(.+)$/, (ctx) => {
   session.category = category;
   session.step = 'file';
   ctx.editMessageText(
-    `✅ ምድብ: \`${category}\`\n\n📎 *ደረጃ 4: የመጽሐፉን ፋይል ይላኩ*\n\n📤 ፋይሉን (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n💡 ይህ የመጨረሻ ደረጃ ነው!\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
+    `✅ ምድብ: \`${category}\`\n\n📎 *ደረጃ 4: የመጽሐፉን ፋይል ይላኩ*\n\n📤 ዋናውን የመጽሐፍ ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n💡 ይህ የመጨረሻ ደረጃ ነው!`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -1070,7 +1084,7 @@ bot.action('cancel_add_book', (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
     delete addBookSessions[userId];
-    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
+    ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
   } else {
     ctx.answerCbQuery("❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
   }
@@ -1099,7 +1113,7 @@ bot.action(/^reject_(\d+)_(.+)$/, (ctx) => {
 });
 
 // ==========================================
-// 21. FILE HANDLER
+// 21. FILE HANDLER (UPDATED – handles preview files)
 // ==========================================
 function extractFileInfo(msg) {
   if (msg.document) {
@@ -1126,7 +1140,21 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
   const message = ctx.message;
   if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
 
-  // ---- ADD BOOK: step === 'file' ----
+  // ---- ADD BOOK: step === 'preview' (handle preview files) ----
+  if (addBookSessions[userId] && addBookSessions[userId].step === 'preview') {
+    const session = addBookSessions[userId];
+    const fileInfo = extractFileInfo(message);
+    if (!fileInfo) return ctx.reply("❌ የፋይሉ መረጃ አልተገኘም።");
+    
+    // Add to preview files array
+    if (!session.previewFiles) session.previewFiles = [];
+    session.previewFiles.push(fileInfo.fileId);
+    
+    await ctx.reply(`✅ ቅድመ እይታ ፋይል #${session.previewFiles.length} ተጨምሯል! 📎\n\nሌላ ፋይል መላክ ይችላሉ ወይም ለማጠናቀቅ /done ይተይቡ።`);
+    return;
+  }
+
+  // ---- ADD BOOK: step === 'file' (final book file) ----
   if (addBookSessions[userId] && addBookSessions[userId].step === 'file') {
     const session = addBookSessions[userId];
     const fileInfo = extractFileInfo(message);
@@ -1146,17 +1174,23 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
       category: category,
       file_id: fileInfo.fileId,
       title: session.title,
-      preview: session.preview || 'Preview not available'
+      preview: session.preview || 'Preview not available',
+      preview_files: session.previewFiles || []
     };
     
     const result = await addBook(newBook);
     if (result) {
       delete addBookSessions[userId];
       ctx.reply(
-        `✅ *መጽሐፍ ተጨምሯል!* 📚\n\n📂 ምድብ: ${category}\n🆔 መታወቂያ: ${newId}\n📄 ርዕስ: ${session.title}\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
+        `✅ *መጽሐፍ በተሳካ ሁኔታ ተመዝግቧል!* 📚\n\n` +
+        `📂 ምድብ: ${category}\n` +
+        `🆔 መታወቂያ: ${newId}\n` +
+        `📄 ርዕስ: ${session.title}\n` +
+        `📎 የቅድመ እይታ ፋይሎች: ${session.previewFiles ? session.previewFiles.length : 0}\n\n` +
+        `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
         { parse_mode: 'Markdown' }
       );
-      logActivity(userId, 'add_book', { category, bookId: newId, title: session.title });
+      logActivity(userId, 'add_book', { category, bookId: newId, title: session.title, previewFiles: session.previewFiles });
     } else {
       ctx.reply("❌ መጽሐፍ መጨመር አልተሳካም። እባክዎትን እንደገና ይሞክሩ።");
     }
@@ -1235,16 +1269,22 @@ bot.on('text', async (ctx) => {
       session.title = text.trim();
       session.step = 'preview';
       session.preview = '';
+      session.previewFiles = [];
       return ctx.reply(
-        `✅ ርዕስ: \`${session.title}\`\n\n📄 *ደረጃ 2: ቅድመ እይታ ያስገቡ*\n\n✏️ የመጽሐፉን ቅድመ እይታ ይተይቡ። ሲጨርሱ /done ይተይቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
+        `✅ ርዕስ: \`${session.title}\`\n\n📄 *ደረጃ 2: ቅድመ እይታ ያስገቡ*\n\n` +
+        `✏️ የመጽሐፉን ቅድመ እይታ ጽሑፍ ይተይቡ።\n` +
+        `📎 እንዲሁም የቅድመ እይታ ፋይሎችን (ፎቶ፣ ፒዲኤፍ፣ ቪዲዮ፣ ወዘተ) መላክ ይችላሉ።\n` +
+        `🔚 ሲጨርሱ /done ይተይቡ።\n\n` +
+        `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
         { parse_mode: 'Markdown' }
       );
     }
 
     if (session.step === 'preview') {
       if (text === '/done') {
-        if (!session.preview || session.preview.trim().length < 10) {
-          return ctx.reply("⚠️ ቅድመ እይታው በጣም አጭር ነው! እባክዎትን ቢያንስ 10 ፊደላት ይጻፉ።");
+        // Check if there is at least some preview content (text or files)
+        if ((!session.preview || session.preview.trim().length < 10) && (!session.previewFiles || session.previewFiles.length === 0)) {
+          return ctx.reply("⚠️ እባክዎትን ቢያንስ ቅድመ እይታ ጽሑፍ (10 ፊደላት) ወይም አንድ ቅድመ እይታ ፋይል ይላኩ።");
         }
         session.step = 'category';
         const categories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
@@ -1256,16 +1296,22 @@ bot.on('text', async (ctx) => {
           buttons.push(row);
         }
         buttons.push([Markup.button.callback("❌ ሰርዝ", "cancel_add_book")]);
-        return ctx.reply(`✅ ቅድመ እይታ ተቀምጧል!\n\n📂 *ደረጃ 3: ምድብ ይምረጡ*`, Markup.inlineKeyboard(buttons));
+        return ctx.reply(
+          `✅ ቅድመ እይታ ተቀምጧል!\n` +
+          `📎 ${session.previewFiles ? session.previewFiles.length : 0} ፋይሎች ተቀምጠዋል።\n\n` +
+          `📂 *ደረጃ 3: ምድብ ይምረጡ*`,
+          Markup.inlineKeyboard(buttons)
+        );
       }
+      // Append preview text
       if (!session.preview) session.preview = text;
       else session.preview += '\n\n' + text;
       const wordCount = session.preview.split(' ').length;
-      return ctx.reply(`📄 ተዘምኗል! (${wordCount} ቃላት) ሲጨርሱ /done ይተይቡ።`);
+      return ctx.reply(`📄 ተዘምኗል! (${wordCount} ቃላት) ፋይሎችን መላክ ይችላሉ ወይም /done ይተይቡ።`);
     }
 
     if (session.step === 'file') {
-      return ctx.reply("📤 እባክዎትን የመጽሐፉን ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
+      return ctx.reply("📤 እባክዎትን ዋናውን የመጽሐፍ ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
     }
 
     // ---- REMOVE BOOK FLOW ----
@@ -1352,20 +1398,15 @@ bot.on('text', async (ctx) => {
         const title = book.title.toLowerCase();
         const titleWords = title.split(' ').filter(w => w.length > 0);
         
-        // Skip books with empty titles
         if (titleWords.length === 0) continue;
         
         let isMatch = false;
-        
-        // Check each search word against each title word
         for (const sWord of searchWords) {
           for (const tWord of titleWords) {
-            // Exact substring match
             if (tWord.includes(sWord) || sWord.includes(tWord)) {
               isMatch = true;
               break;
             }
-            // Check for Amharic character variations (ሀ/ሐ/አ/ኣ etc.)
             const normS = sWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
             const normT = tWord.replace(/[ሀሐሓ]/g, '[ሀሐሓ]').replace(/[አኣ]/g, '[አኣ]').replace(/[ደዸ]/g, '[ደዸ]').replace(/[ግጽ]/g, '[ግጽ]').replace(/[ለሌ]/g, '[ለሌ]').replace(/[ሙሚ]/g, '[ሙሚ]').replace(/[ንኝ]/g, '[ንኝ]');
             if (normT.includes(normS) || normS.includes(normT)) {
@@ -1375,9 +1416,7 @@ bot.on('text', async (ctx) => {
           }
           if (isMatch) break;
         }
-        
         if (isMatch) {
-          // Avoid duplicates
           if (!matches.some(m => m.id === book.id)) {
             matches.push({ ...book, catKey: cat });
           }
@@ -1386,7 +1425,6 @@ bot.on('text', async (ctx) => {
     }
   }
 
-  // Sort matches by relevance (books that match more words first)
   matches.sort((a, b) => {
     const aTitle = a.title.toLowerCase();
     const bTitle = b.title.toLowerCase();
