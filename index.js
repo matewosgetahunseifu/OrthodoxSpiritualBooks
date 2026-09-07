@@ -558,16 +558,14 @@ bot.start(async (ctx) => {
 });
 
 // ==========================================
-// 14. MAIN KEYBOARD HANDLERS
+// 14. MAIN KEYBOARD HANDLERS (ALL WITH AWAIT)
 // ==========================================
-// (Books button, Search, Contact, Feedback, Stats, Restart)
-// These are unchanged from the previous version.
 
-// 📚 Books button
-bot.hears('📚 መጽሐፍት', (ctx) => {
+// 📚 Books button (FIXED: added async/await)
+bot.hears('📚 መጽሐፍት', async (ctx) => {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  registerUser(ctx.from);
+  await registerUser(ctx.from);
   const user = db.users[userId];
   
   if (user.preferred_language) {
@@ -617,15 +615,17 @@ bot.hears('📚 መጽሐፍት', (ctx) => {
   ]));
 });
 
-// 🔍 Search button
-bot.hears('🔍 መጽሐፍ ፈልግ', (ctx) => {
+// 🔍 Search button (FIXED: added async/await)
+bot.hears('🔍 መጽሐፍ ፈልግ', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  await registerUser(ctx.from);
   ctx.reply("🔍 እባክዎትን የመጽሐፍ ስም ያስገቡ፦");
 });
 
 // 📞 Contact button
-bot.hears('📞 አግኙኝ', (ctx) => {
+bot.hears('📞 አግኙኝ', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  await registerUser(ctx.from);
   ctx.reply(
     `📞 *የአስተዳዳሪ መረጃ*\n\n` +
     `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
@@ -637,8 +637,9 @@ bot.hears('📞 አግኙኝ', (ctx) => {
 });
 
 // 💬 Feedback button
-bot.hears('💬 አስተያየት', (ctx) => {
+bot.hears('💬 አስተያየት', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  await registerUser(ctx.from);
   ctx.reply(
     `💬 *አስተያየት ወይም ሀሳብ*\n\n` +
     `ሀሳብዎን፣ አስተያየትዎን ወይም ማሻሻያ ሀሳብዎን በሚከተሉት አድራሻዎች ያሳውቁን።\n\n` +
@@ -651,8 +652,9 @@ bot.hears('💬 አስተያየት', (ctx) => {
 });
 
 // 📊 Stats button
-bot.hears('📊 ስታቲስቲክስ', (ctx) => {
+bot.hears('📊 ስታቲስቲክስ', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  await registerUser(ctx.from);
   const stats = getUserStats(ctx.from.id);
   if (!stats) return ctx.reply("❌ መረጃ አልተገኘም።");
   ctx.reply(
@@ -668,8 +670,9 @@ bot.hears('📊 ስታቲስቲክስ', (ctx) => {
 });
 
 // 🔄 Restart button
-bot.hears('🔄 ዳግም ጀምር', (ctx) => {
+bot.hears('🔄 ዳግም ጀምር', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return ctx.reply("⏳ እባክዎትን ትንሽ ይጠብቁ!");
+  await registerUser(ctx.from);
   ctx.reply("👋 እንኳን ወደ ቦቱ በሰላም ተመለሱ! ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", mainKeyboard);
 });
 
@@ -1083,10 +1086,219 @@ bot.action(/^retry_(.+)$/, async (ctx) => {
 // ==========================================
 // 21. SUB-MENU ACTIONS (UNCHANGED)
 // ==========================================
-// (All sub-menu actions from lang_geez to back_to_lang)
-// To keep this answer length manageable, I'll include a placeholder comment.
-// In your actual code, you must keep all the sub-menu action handlers.
-// They are exactly the same as in the previous version.
+bot.action("lang_geez", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "geez";
+    if (!supabase) saveLocalDatabase();
+  }
+  ctx.editMessageText(
+    "በግዕዝ ምድብ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_geez_law")],
+      [Markup.button.callback("ታሪክና ድርሳናት", "sub_geez_hist")],
+      [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_geez_bible")],
+      [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
+    ])
+  );
+});
+
+bot.action("sub_geez_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_geez_hist")],
+      [Markup.button.callback("ገድል ተአምር ድርሳን", "cat_geez_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_geez")]
+    ])
+  );
+});
+
+bot.action("sub_geez_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_geez_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_geez_nt")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_geez")]
+    ])
+  );
+});
+
+bot.action("lang_ga", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "geez_amharic";
+    if (!supabase) saveLocalDatabase();
+  }
+  ctx.editMessageText(
+    "በግዕዝ አማርኛ ምድብ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_ga_law")],
+      [Markup.button.callback("ታሪክና ድርሳናት", "sub_ga_hist")],
+      [Markup.button.callback("የመጽሐፍ ቅዱስ ክፍል", "sub_ga_bible")],
+      [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
+    ])
+  );
+});
+
+bot.action("sub_ga_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_ga_hist")],
+      [Markup.button.callback("ገድል ተአምር ድርሳን", "cat_ga_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_ga")]
+    ])
+  );
+});
+
+bot.action("sub_ga_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_ga_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_ga_nt")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_ga")]
+    ])
+  );
+});
+
+bot.action("lang_amh", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "amharic";
+    if (!supabase) saveLocalDatabase();
+  }
+  ctx.editMessageText(
+    "በአማርኛ ምድብ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ሕግና ሥርዓት", "cat_amh_law")],
+      [Markup.button.callback("ታሪክና ድርሳናት", "sub_amh_hist")],
+      [Markup.button.callback("ክርስቲያናዊ ሥነ ምግባር", "cat_amh_eth")],
+      [Markup.button.callback("የመጽሐፍ ቅዱስ ጥናት", "sub_amh_bible")],
+      [Markup.button.callback("ነገረ ሃይማኖት", "sub_amh_theology")],
+      [Markup.button.callback("⬅️ ተመለስ", "back_to_lang")]
+    ])
+  );
+});
+
+bot.action("sub_amh_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከታሪክና ድርሳናት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ታሪክ", "cat_amh_hist")],
+      [Markup.button.callback("ድርሳን ተአምር ገድላት", "cat_amh_gdsl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
+bot.action("sub_amh_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከመጽሐፍ ቅዱስ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ብሉይ ኪዳን", "cat_amh_ot")],
+      [Markup.button.callback("ሐዲስ ኪዳን", "cat_amh_nt")],
+      [Markup.button.callback("መጽሐፍ ቅዱስ ጥናት", "cat_amh_std")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
+bot.action("sub_amh_theology", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "ከነገረ ሃይማኖት ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("ነገረ ክርስቶስ", "cat_amh_chr")],
+      [Markup.button.callback("ነገረ ማርያም", "cat_amh_mry")],
+      [Markup.button.callback("ነገረ ቅዱሳን", "cat_amh_snt")],
+      [Markup.button.callback("ነገረ ሃይማኖት", "cat_amh_thl")],
+      [Markup.button.callback("⬅️ ተመለስ", "lang_amh")]
+    ])
+  );
+});
+
+bot.action("lang_eng", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  const userId = ctx.from.id;
+  if (db.users[userId]) {
+    db.users[userId].preferred_language = "english";
+    if (!supabase) saveLocalDatabase();
+  }
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("Law & Order", "cat_eng_law")],
+      [Markup.button.callback("History & Discourse", "sub_eng_hist")],
+      [Markup.button.callback("Christian Ethics", "cat_eng_eth")],
+      [Markup.button.callback("Bible Study", "sub_eng_bible")],
+      [Markup.button.callback("Theology & Dogma", "sub_eng_theology")],
+      [Markup.button.callback("⬅️ Back", "back_to_lang")]
+    ])
+  );
+});
+
+bot.action("sub_eng_hist", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("History", "cat_eng_hist")],
+      [Markup.button.callback("Discourse & Miracles", "cat_eng_gdsl")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("sub_eng_bible", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("Old Testament", "cat_eng_ot")],
+      [Markup.button.callback("New Testament", "cat_eng_nt")],
+      [Markup.button.callback("General Bible Study", "cat_eng_std")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("sub_eng_theology", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "Select category:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("Christology", "cat_eng_chr")],
+      [Markup.button.callback("Mariology", "cat_eng_mry")],
+      [Markup.button.callback("Hagiography", "cat_eng_snt")],
+      [Markup.button.callback("Theology", "cat_eng_thl")],
+      [Markup.button.callback("⬅️ Back", "lang_eng")]
+    ])
+  );
+});
+
+bot.action("back_to_lang", (ctx) => {
+  if (!checkRateLimitCallback(ctx)) return;
+  ctx.editMessageText(
+    "እባኮን ቋንቋ ይምረጡ:",
+    Markup.inlineKeyboard([
+      [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
+      [Markup.button.callback("የግዕዝ ቋንቋ መማሪያ", "cat_geez_edu")],
+      [Markup.button.callback("በአማርኛ", "lang_amh"), Markup.button.callback("In English", "lang_eng")]
+    ])
+  );
+});
 
 // ==========================================
 // 22. ADD CATEGORY BUTTON (for addbook flow)
