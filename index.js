@@ -1,34 +1,48 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// TELEGRAM BOOK BOT — FULL PRODUCTION CODE (v2.0)
+// All 22 issues fixed
+// ═══════════════════════════════════════════════════════════════════════════
+
 const { Telegraf, Markup } = require('telegraf');
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
 
-// ==========================================
-// 1. CONFIGURATION & CONSTANTS
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §1. CONFIGURATION
+// ═══════════════════════════════════════════════════════════════════════════
 const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
-const ADMIN_IDS = [7480368503];
-const ADMIN_USERNAME = "@Sealilenemariyammsle12we19";
-const ADMIN_EMAIL = "matewosgetahunseifu@gmail.com";
+
+// FIX #9: ADMIN_IDS from environment variable (comma-separated)
+const ADMIN_IDS = (process.env.ADMIN_IDS || "7480368503")
+  .split(',')
+  .map(id => parseInt(id.trim(), 10))
+  .filter(id => Number.isFinite(id));
+
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "@Sealilenemariyammsle12we19";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL || "matewosgetahunseifu@gmail.com";
 const PORT = process.env.PORT || 3000;
 const RATE_LIMIT = 30;
 const RATE_WINDOW = 60 * 1000;
 const SEARCH_RESULTS_LIMIT = 20;
-// Separator that cannot collide with category keys (which use "_") or book ids.
 const STATS_KEY_SEP = '::';
 
-// Supabase config
+// FIX #22: cap on preview files per book
+const MAX_PREVIEW_FILES = 10;
+
+// FIX #16: backup size limit (Telegram allows up to 50MB)
+const MAX_BACKUP_BYTES = 40 * 1024 * 1024;
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-
 const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
 
 const bot = new Telegraf(BOT_TOKEN);
 
-// ==========================================
-// 2. THREE DASHES MENU (☰) - SET COMMANDS
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §2. BOT COMMANDS MENU
+// ═══════════════════════════════════════════════════════════════════════════
 bot.telegram.setMyCommands([
   { command: 'start', description: '🚀 ቦቱን ይጀምሩ' },
   { command: 'help', description: '📖 እርዳታ ያግኙ' },
@@ -44,16 +58,16 @@ bot.telegram.setMyCommands([
   { command: 'cancel', description: '❌ ስራ ይሰርዙ' }
 ]);
 
-// ==========================================
-// 3. EXPRESS SERVER (For Render Uptime)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §3. EXPRESS SERVER (FIX #18: graceful shutdown)
+// ═══════════════════════════════════════════════════════════════════════════
 const app = express();
 
 app.get('/', (req, res) => res.send('✅ Bot is running!'));
 app.get('/health', (req, res) => res.status(200).send('OK'));
 app.get('/ping', (req, res) => res.status(200).send('Pong'));
 
-app.listen(PORT, () => console.log(`🌐 Server on port ${PORT}`));
+const server = app.listen(PORT, () => console.log(`🌐 Server on port ${PORT}`));
 
 setInterval(async () => {
   const serverUrl = process.env.RENDER_EXTERNAL_URL;
@@ -64,14 +78,31 @@ setInterval(async () => {
   }
 }, 3 * 60 * 1000);
 
-// ==========================================
-// 4. DATABASE LAYER (Supabase or fallback JSON)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §4. HELPERS — Markdown escape (FIX #10) + safeEdit (FIX #15)
+// ═══════════════════════════════════════════════════════════════════════════
+function escMd(text) {
+  return String(text == null ? '' : text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
+}
+
+async function safeEdit(ctx, ...args) {
+  try {
+    await ctx.editMessageText(...args);
+  } catch (e) {
+    const msg = (e && e.message) || '';
+    if (!msg.includes('not modified') && !msg.includes('message to edit not found')) {
+      console.error('editMessageText failed:', msg);
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// §5. DATABASE LAYER
+// ═══════════════════════════════════════════════════════════════════════════
 const DATA_FILE = path.join(__dirname, 'database.json');
 let db = null;
 
-// --- Shared helper: normalize preview_files into a clean array of
-//     { type, fileId } objects, tolerating legacy/malformed data. ---
+// FIX #4: always coerce preview_files into a clean array of {type, fileId}
 function normalizePreviewFiles(raw) {
   if (Array.isArray(raw)) {
     return raw.map(normalizePreviewFileEntry).filter(Boolean);
@@ -94,7 +125,6 @@ function normalizePreviewFiles(raw) {
   return [];
 }
 
-// Legacy entries may just be a bare file_id string (type unknown).
 function normalizePreviewFileEntry(entry) {
   if (!entry) return null;
   if (typeof entry === 'string') return { type: 'document', fileId: entry };
@@ -105,7 +135,6 @@ function normalizePreviewFileEntry(entry) {
 function normalizeBookRecord(book) {
   if (!book) return book;
   book.preview_files = normalizePreviewFiles(book.preview_files);
-  // Legacy main file: if file_id is a bare string, wrap it; if file_type missing default to document.
   if (!book.file_type) book.file_type = 'document';
   return book;
 }
@@ -114,9 +143,7 @@ function normalizeBookRecord(book) {
 async function supabaseGetBooks(category) {
   if (!supabase) return null;
   const { data, error } = await supabase
-    .from('books')
-    .select('*')
-    .eq('category', category)
+    .from('books').select('*').eq('category', category)
     .order('order', { ascending: true });
   if (error) { console.error('Supabase getBooks error:', error); return null; }
   return data;
@@ -139,21 +166,13 @@ async function supabaseGetBook(id) {
 async function supabaseAddBook(book) {
   if (!supabase) return null;
   const previewFiles = normalizePreviewFiles(book.preview_files);
-
   const { data: existing } = await supabase
-    .from('books')
-    .select('order')
-    .eq('category', book.category)
-    .order('order', { ascending: false })
-    .limit(1);
+    .from('books').select('order').eq('category', book.category)
+    .order('order', { ascending: false }).limit(1);
   const nextOrder = (existing && existing.length) ? existing[0].order + 1 : 1;
   const { data, error } = await supabase
     .from('books')
-    .insert([{
-      ...book,
-      preview_files: previewFiles,
-      order: nextOrder
-    }])
+    .insert([{ ...book, preview_files: previewFiles, order: nextOrder }])
     .select();
   if (error) { console.error('Supabase addBook error:', error); return null; }
   return data[0];
@@ -170,9 +189,7 @@ async function supabaseReorderBooks(category, orderedIds) {
   if (!supabase) return null;
   for (let i = 0; i < orderedIds.length; i++) {
     const { error } = await supabase
-      .from('books')
-      .update({ order: i + 1 })
-      .eq('id', orderedIds[i]);
+      .from('books').update({ order: i + 1 }).eq('id', orderedIds[i]);
     if (error) { console.error('Supabase reorder error:', error); return null; }
   }
   return true;
@@ -206,7 +223,6 @@ function saveLocalDatabase() {
   } catch (e) { console.log('❌ Local DB save error:', e.message); }
 }
 
-// Init db
 if (supabase) {
   console.log('✅ Using Supabase as database.');
   db = { users: {}, pendingReceipts: {}, feedback: [], bookStats: {}, userActivity: {} };
@@ -215,10 +231,7 @@ if (supabase) {
   db = loadLocalDatabase();
 }
 
-// In-memory cache of ALL books, keyed by category. Refreshed on load and
-// after every mutation, so hot paths (search, bookcount, random, popular)
-// never have to make 30+ sequential network calls per request.
-let allBooksCache = {}; // { [category]: Book[] }
+let allBooksCache = {};
 
 function rebuildLocalCacheFromBooksDatabase() {
   allBooksCache = {};
@@ -244,17 +257,14 @@ async function refreshAllBooksCache() {
   }
 }
 
-// ==========================================
-// 5. LOAD USERS FROM SUPABASE
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §6. LOAD DATA FROM SUPABASE
+// ═══════════════════════════════════════════════════════════════════════════
 async function loadUsersFromSupabase() {
   if (!supabase) return;
   try {
     const { data, error } = await supabase.from('users').select('*');
-    if (error) {
-      console.error('Error loading users from Supabase:', error);
-      return;
-    }
+    if (error) { console.error('Error loading users:', error); return; }
     if (data) {
       data.forEach(user => {
         db.users[user.id] = {
@@ -268,44 +278,26 @@ async function loadUsersFromSupabase() {
       });
       console.log(`✅ Loaded ${data.length} users from Supabase.`);
     }
-  } catch (e) {
-    console.error('Error loading users:', e);
-  }
+  } catch (e) { console.error('Error loading users:', e); }
 }
 
-// ==========================================
-// 6. LOAD BOOK STATS FROM SUPABASE
-// ==========================================
 async function loadBookStatsFromSupabase() {
   if (!supabase) return;
   try {
     const { data, error } = await supabase.from('book_stats').select('*');
-    if (error) {
-      console.log('⚠️ book_stats table not found. Stats will not be loaded.');
-      return;
-    }
+    if (error) { console.log('⚠️ book_stats table not found.'); return; }
     if (data) {
-      data.forEach(stat => {
-        db.bookStats[stat.book_key] = stat.count;
-      });
-      console.log(`✅ Loaded ${data.length} book stats from Supabase.`);
+      data.forEach(stat => { db.bookStats[stat.book_key] = stat.count; });
+      console.log(`✅ Loaded ${data.length} book stats.`);
     }
-  } catch (e) {
-    console.error('Error loading book stats:', e);
-  }
+  } catch (e) { console.error('Error loading book stats:', e); }
 }
 
-// ==========================================
-// 7. LOAD PENDING RECEIPTS FROM SUPABASE
-// ==========================================
 async function loadPendingReceiptsFromSupabase() {
   if (!supabase) return;
   try {
     const { data, error } = await supabase.from('pending_receipts').select('*');
-    if (error) {
-      console.log('⚠️ pending_receipts table not found. Receipts will not be loaded.');
-      return;
-    }
+    if (error) { console.log('⚠️ pending_receipts table not found.'); return; }
     if (data) {
       data.forEach(receipt => {
         db.pendingReceipts[receipt.message_id] = {
@@ -314,17 +306,14 @@ async function loadPendingReceiptsFromSupabase() {
           confidence: receipt.confidence
         };
       });
-      console.log(`✅ Loaded ${data.length} pending receipts from Supabase.`);
+      console.log(`✅ Loaded ${data.length} pending receipts.`);
     }
-  } catch (e) {
-    console.error('Error loading pending receipts:', e);
-  }
+  } catch (e) { console.error('Error loading pending receipts:', e); }
 }
 
-// --- Public functions ---
-// Fast path: read from in-memory cache. Cache is refreshed after every
-// add/remove/reorder and at startup, so this never re-hits the network for
-// the common "list books" case.
+// ═══════════════════════════════════════════════════════════════════════════
+// §7. PUBLIC DB FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
 async function getBooks(category) {
   return allBooksCache[category] || [];
 }
@@ -337,17 +326,20 @@ async function getAllBooksFlat() {
   return out;
 }
 
+// FIX #13: local-mode fallback to booksDatabase
 async function getBook(id) {
   for (const cat of Object.keys(allBooksCache)) {
     const found = allBooksCache[cat].find(b => b.id === id);
     if (found) return found;
   }
-  // Fallback to a direct lookup in case the cache is stale (e.g. book just
-  // added from another process instance).
   if (supabase) {
     const book = await supabaseGetBook(id);
     if (book) normalizeBookRecord(book);
     return book;
+  }
+  for (const cat of Object.keys(booksDatabase)) {
+    const found = (booksDatabase[cat] || []).find(b => b.id === id);
+    if (found) return normalizeBookRecord(found);
   }
   return null;
 }
@@ -405,12 +397,10 @@ async function reorderBooks(category, orderedIds) {
   return result;
 }
 
-// ==========================================
-// 8. ADD BOOK SESSIONS
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §8. ADD BOOK SESSIONS (FIX #21: touch on every interaction)
+// ═══════════════════════════════════════════════════════════════════════════
 const addBookSessions = {};
-// Sessions older than this are considered abandoned and are swept up so
-// memory doesn't grow unbounded if an admin walks away mid-flow.
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
 
 function touchSession(userId) {
@@ -427,9 +417,9 @@ setInterval(() => {
   }
 }, 10 * 60 * 1000);
 
-// ==========================================
-// 9. OTHER HELPERS
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §9. HELPERS
+// ═══════════════════════════════════════════════════════════════════════════
 function isAdmin(userId) { return ADMIN_IDS.includes(userId); }
 
 function isPaidUser(userId) {
@@ -449,18 +439,16 @@ function defaultUserRecord(from) {
   };
 }
 
+// FIX #11: return whether the user was newly registered
 async function registerUser(from) {
   if (!db.users[from.id]) {
     db.users[from.id] = defaultUserRecord(from);
     if (supabase) {
       try {
         const { error } = await supabase
-          .from('users')
-          .upsert({ id: from.id, ...db.users[from.id] }, { onConflict: 'id' });
-        if (error) console.error('Error upserting user to Supabase:', error);
-      } catch (e) {
-        console.error('Error upserting user:', e);
-      }
+          .from('users').upsert({ id: from.id, ...db.users[from.id] }, { onConflict: 'id' });
+        if (error) console.error('Error upserting user:', error);
+      } catch (e) { console.error('Error upserting user:', e); }
     }
     if (!supabase) saveLocalDatabase();
     logActivity(from.id, 'register', { username: from.username });
@@ -469,8 +457,8 @@ async function registerUser(from) {
   return false;
 }
 
+// FIX #14: markUserPaid preserves existing fields
 async function markUserPaid(userId, fromHint) {
-  // Ensure a full, well-formed record exists even if the user never ran /start.
   if (!db.users[userId]) {
     db.users[userId] = defaultUserRecord(fromHint || { id: userId });
   }
@@ -480,16 +468,23 @@ async function markUserPaid(userId, fromHint) {
     try {
       const { error } = await supabase
         .from('users')
-        .upsert({ id: userId, ...db.users[userId] }, { onConflict: 'id' });
+        .upsert({
+          id: userId,
+          username: db.users[userId].username,
+          is_paid: true,
+          registration_date: db.users[userId].registration_date,
+          preferred_language: db.users[userId].preferred_language,
+          total_downloads: db.users[userId].total_downloads || 0,
+          books_downloaded: db.users[userId].books_downloaded || []
+        }, { onConflict: 'id' });
       if (error) console.error('Error updating user paid status:', error);
-    } catch (e) {
-      console.error('Error updating user paid status:', e);
-    }
+    } catch (e) { console.error('Error updating paid:', e); }
   }
   if (!supabase) saveLocalDatabase();
   logActivity(userId, 'payment_approved', { status: 'paid' });
 }
 
+// FIX #20: trackDownload updates memory first, then Supabase
 async function trackDownload(userId, catKey, bookId) {
   if (!db.users[userId]) return;
   db.users[userId].total_downloads = (db.users[userId].total_downloads || 0) + 1;
@@ -505,25 +500,20 @@ async function trackDownload(userId, catKey, bookId) {
   if (supabase) {
     try {
       const { error: userError } = await supabase
-        .from('users')
-        .update({
+        .from('users').update({
           total_downloads: db.users[userId].total_downloads,
           books_downloaded: db.users[userId].books_downloaded
-        })
-        .eq('id', userId);
+        }).eq('id', userId);
       if (userError) console.error('Error updating user stats:', userError);
 
       const { error: statsError } = await supabase
-        .from('book_stats')
-        .upsert({
+        .from('book_stats').upsert({
           book_key: bookKey,
           count: db.bookStats[bookKey],
           updated_at: new Date().toISOString()
         }, { onConflict: 'book_key' });
       if (statsError) console.error('Error updating book stats:', statsError);
-    } catch (e) {
-      console.error('Error tracking download:', e);
-    }
+    } catch (e) { console.error('Error tracking download:', e); }
   }
   if (!supabase) saveLocalDatabase();
   logActivity(userId, 'download_book', { catKey, bookId });
@@ -542,9 +532,7 @@ function getUserStats(userId) {
   };
 }
 
-// Non-blocking log writes. Note: on hosts with an ephemeral filesystem
-// (e.g. Render's free tier) these files won't survive a restart/redeploy —
-// treat them as best-effort debugging aids, not durable audit logs.
+// FIX #8: non-blocking logs (best-effort; ephemeral on Render free tier)
 function logActivity(userId, action, details) {
   try {
     const logFile = path.join(__dirname, 'activity.log');
@@ -561,25 +549,20 @@ function logError(type, error) {
   } catch (e) { /* ignore */ }
 }
 
-// Swallow reply errors (e.g. user blocked the bot) so they don't become
-// unhandled promise rejections.
 async function safeReply(ctx, ...args) {
   try {
     return await ctx.reply(...args);
-  } catch (e) {
-    console.error('reply failed:', e.message);
-  }
+  } catch (e) { console.error('reply failed:', e.message); }
 }
 
 async function safeAnswerCbQuery(ctx, ...args) {
-  try {
-    await ctx.answerCbQuery(...args);
-  } catch (e) { /* ignore - callback may have expired */ }
+  try { await ctx.answerCbQuery(...args); }
+  catch (e) { /* ignore - callback may have expired */ }
 }
 
-// ==========================================
-// 10. RATE LIMITING (ADMIN EXEMPT)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §10. RATE LIMITING
+// ═══════════════════════════════════════════════════════════════════════════
 const userRequests = {};
 function checkRateLimit(userId) {
   if (isAdmin(userId)) return true;
@@ -599,8 +582,6 @@ function checkRateLimitCallback(ctx) {
   return true;
 }
 
-// Periodically drop empty rate-limit buckets so memory doesn't grow forever
-// as new unique users show up over the bot's lifetime.
 setInterval(() => {
   const now = Date.now();
   for (const userId of Object.keys(userRequests)) {
@@ -609,32 +590,37 @@ setInterval(() => {
   }
 }, RATE_WINDOW);
 
-// ==========================================
-// 11. ALL CATEGORIES
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §11. CATEGORIES
+// ═══════════════════════════════════════════════════════════════════════════
 const allCategories = ['geez_law','geez_hist','geez_gdsl','geez_ot','geez_nt','ga_law','ga_hist','ga_gdsl','ga_ot','ga_nt','geez_edu','amh_law','amh_hist','amh_gdsl','amh_eth','amh_ot','amh_nt','amh_std','amh_chr','amh_mry','amh_snt','amh_thl','eng_law','eng_hist','eng_eth','eng_ot','eng_gdsl','eng_nt','eng_std','eng_chr','eng_mry','eng_snt','eng_thl'];
 
-// ==========================================
-// 12. MAIN KEYBOARD
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §12. MAIN KEYBOARD
+// ═══════════════════════════════════════════════════════════════════════════
 const mainKeyboard = Markup.keyboard([
   ['📚 መጽሐፍት', '🔍 መጽሐፍ ፈልግ'],
   ['📞 አግኙኝ', '💬 አስተያየት'],
   ['📊 ስታቲስቲክስ', '🔄 ዳግም ጀምር']
 ]).resize();
 
-// ==========================================
-// 13. START COMMAND
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §13. START COMMAND (FIX #11: welcome back for existing users)
+// ═══════════════════════════════════════════════════════════════════════════
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
-  await registerUser(ctx.from);
+  const isNew = await registerUser(ctx.from);
   const user = db.users[userId];
 
-  let msg = "እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ! 📚✨\n\n";
+  let msg = isNew
+    ? "እንኳን ወደ ታላቁ ዲጂታል መጽሐፍ ቦት በሰላም መጡ! 📚✨\n\n"
+    : "👋 እንኳን ደግመው በሰላም መጡ! 📚\n\n";
+
   msg += "ይህ ቦት የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ ቤተ ክርስቲያንን መንፈሳዊ መጽሐፍት በዲጂታል መልክ እንዲያገኙ ያስችልዎታል።\n\n";
-  msg += user.is_paid ? "✅ ክፍያ ፈጽመዋል! ሁሉንም መጽሐፍት በነጻነት ማንበብ ይችላሉ።\n" : "💰 200 ብር በመክፈል ሁሉንም መጽሐፍት ሙሉ በሙሉ ማግኘት ይችላሉ።\n";
+  msg += user.is_paid
+    ? "✅ ክፍያ ፈጽመዋል! ሁሉንም መጽሐፍት በነጻነት ማንበብ ይችላሉ።\n"
+    : "💰 200 ብር በመክፈል ሁሉንም መጽሐፍት ሙሉ በሙሉ ማግኘት ይችላሉ።\n";
   msg += `📚 እስካሁን ${user.total_downloads || 0} መጽሐፍት አውርደዋል።\n\n`;
   msg += "📖 ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።\n\n";
   msg += "👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን";
@@ -642,10 +628,9 @@ bot.start(async (ctx) => {
   safeReply(ctx, msg, mainKeyboard);
 });
 
-// ==========================================
-// 14. MAIN KEYBOARD HANDLERS
-// ==========================================
-
+// ═══════════════════════════════════════════════════════════════════════════
+// §14. MAIN KEYBOARD HANDLERS
+// ═══════════════════════════════════════════════════════════════════════════
 bot.hears('📚 መጽሐፍት', async (ctx) => {
   const userId = ctx.from.id;
   if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
@@ -706,8 +691,8 @@ bot.hears('📞 አግኙኝ', async (ctx) => {
   await registerUser(ctx.from);
   safeReply(ctx,
     `📞 *የአስተዳዳሪ መረጃ*\n\n` +
-    `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
-    `➖ ኢሜይል: ${ADMIN_EMAIL}\n\n` +
+    `➖ ቴሌግራም: ${escMd(ADMIN_USERNAME)}\n` +
+    `➖ ኢሜይል: ${escMd(ADMIN_EMAIL)}\n\n` +
     `ማንኛውንም ጥያቄ ወይም ችግር በላይኛው አድራሻ ያናግሩን።\n\n` +
     `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
@@ -720,8 +705,8 @@ bot.hears('💬 አስተያየት', async (ctx) => {
   safeReply(ctx,
     `💬 *አስተያየት ወይም ሀሳብ*\n\n` +
     `ሀሳብዎን፣ አስተያየትዎን ወይም ማሻሻያ ሀሳብዎን በሚከተሉት አድራሻዎች ያሳውቁን።\n\n` +
-    `➖ ቴሌግራም: ${ADMIN_USERNAME}\n` +
-    `➖ ኢሜይል: ${ADMIN_EMAIL}\n\n` +
+    `➖ ቴሌግራም: ${escMd(ADMIN_USERNAME)}\n` +
+    `➖ ኢሜይል: ${escMd(ADMIN_EMAIL)}\n\n` +
     `አስተያየትዎ ውድ ነው! 🙏\n\n` +
     `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
@@ -735,11 +720,11 @@ bot.hears('📊 ስታቲስቲክስ', async (ctx) => {
   if (!stats) return safeReply(ctx, "❌ መረጃ አልተገኘም።");
   safeReply(ctx,
     `📊 *የእርስዎ መረጃ*\n\n` +
-    `👤 ስም: ${stats.username}\n` +
+    `👤 ስም: ${escMd(stats.username)}\n` +
     `💰 ክፍያ: ${stats.is_paid ? '✅ ተከፍሏል' : '❌ አልተከፈለም'}\n` +
     `📚 የወረዱ መጽሐፍት: ${stats.total_downloads}\n` +
     `📖 የተለያዩ መጽሐፍት: ${stats.books_downloaded}\n` +
-    `🌍 ቋንቋ: ${stats.preferred_language}\n\n` +
+    `🌍 ቋንቋ: ${escMd(stats.preferred_language)}\n\n` +
     `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
@@ -751,10 +736,9 @@ bot.hears('🔄 ዳግም ጀምር', async (ctx) => {
   safeReply(ctx, "👋 እንኳን ወደ ቦቱ በሰላም ተመለሱ! ከስር ያሉትን ቁልፎች በመጫን መጽሐፍትን ያስሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", mainKeyboard);
 });
 
-// ==========================================
-// 15. ALL COMMANDS
-// ==========================================
-
+// ═══════════════════════════════════════════════════════════════════════════
+// §15. COMMANDS
+// ═══════════════════════════════════════════════════════════════════════════
 bot.command('help', (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   safeReply(ctx,
@@ -769,13 +753,13 @@ bot.command('help', (ctx) => {
     `የመጽሐፍ ስም በመተየብ ይፈልጉ።\n\n` +
     `👑 *አስተዳዳሪ*\n` +
     `/addbook, /removebook, /orderbook, /backup\n\n` +
-    `❓ ጥያቄ ካለዎት: ${ADMIN_USERNAME}\n\n` +
+    `❓ ጥያቄ ካለዎት: ${escMd(ADMIN_USERNAME)}\n\n` +
     `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
   );
 });
 
-// 📚 BOOKCOUNT COMMAND (uses cache — no per-request DB fan-out)
+// FIX #5: /bookcount reads cache directly (no await loop)
 bot.command('bookcount', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   try {
@@ -784,12 +768,12 @@ bot.command('bookcount', async (ctx) => {
     let hasBooks = false;
 
     for (const cat of allCategories) {
-      const books = await getBooks(cat);
+      const books = allBooksCache[cat] || [];
       const validBooks = books.filter(b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined');
       if (validBooks.length > 0) {
         hasBooks = true;
         total += validBooks.length;
-        msg += `• ${cat}: ${validBooks.length}\n`;
+        msg += `• ${escMd(cat)}: ${validBooks.length}\n`;
       }
     }
 
@@ -805,7 +789,7 @@ bot.command('bookcount', async (ctx) => {
   }
 });
 
-// 🏆 POPULAR COMMAND (fixed key parsing)
+// FIX #7: /popular shows "no results" instead of empty body
 bot.command('popular', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   if (!db.bookStats || Object.keys(db.bookStats).length === 0) {
@@ -813,38 +797,38 @@ bot.command('popular', async (ctx) => {
   }
   const sorted = Object.entries(db.bookStats).sort((a, b) => b[1] - a[1]).slice(0, 5);
   let msg = '🏆 *በብዛት የተወረዱ መጽሐፍት*\n\n';
+  let added = 0;
   for (const [key, count] of sorted) {
     const sepIdx = key.indexOf(STATS_KEY_SEP);
-    if (sepIdx === -1) continue; // legacy/malformed key, skip
+    if (sepIdx === -1) continue;
     const cat = key.slice(0, sepIdx);
     const id = key.slice(sepIdx + STATS_KEY_SEP.length);
     const book = await getBook(id);
     if (book) {
-      msg += `• ${book.title} (${cat}) – ${count} ውርዶች\n`;
+      msg += `• ${escMd(book.title)} (${escMd(cat)}) – ${count} ውርዶች\n`;
+      added++;
     }
+  }
+  if (added === 0) {
+    return safeReply(ctx, '📊 ምንም ትክክለኛ መረጃ አልተገኘም።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
   }
   msg += `\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`;
   safeReply(ctx, msg, { parse_mode: 'Markdown' });
 });
 
-// 🎲 RANDOM COMMAND (uses cache)
 bot.command('random', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   try {
     const allBooks = (await getAllBooksFlat()).filter(
       b => b.title && b.title.trim().length > 0 && b.title !== 'null' && b.title !== 'undefined'
     );
-
     if (allBooks.length === 0) {
       return safeReply(ctx, '📚 ምንም መጽሐፍ የለም። እባክዎትን በኋላ ይመለሱ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን');
     }
-
     const book = allBooks[Math.floor(Math.random() * allBooks.length)];
-    await safeReply(ctx, `📖 *የዘፈቀደ መጽሐፍ*\n\n📕 ${book.title}\n📂 ምድብ: ${book.category}\n🆔 መታወቂያ: ${book.id}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, {
+    await safeReply(ctx, `📖 *የዘፈቀደ መጽሐፍ*\n\n📕 ${escMd(book.title)}\n📂 ምድብ: ${escMd(book.category)}\n🆔 መታወቂያ: ${escMd(book.id)}\n\nከስር ያለውን ቁልፍ በመጫን ያንብቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, {
       parse_mode: 'Markdown',
-      ...Markup.inlineKeyboard([
-        [Markup.button.callback("📖 አንብብ", `gb_${book.id}`)]
-      ])
+      ...Markup.inlineKeyboard([[Markup.button.callback("📖 አንብብ", `gb_${book.id}`)]])
     });
   } catch (error) {
     console.error('Random error:', error);
@@ -852,7 +836,6 @@ bot.command('random', async (ctx) => {
   }
 });
 
-// 📕 ADD BOOK COMMAND
 bot.command('addbook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return safeReply(ctx, "⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -860,7 +843,7 @@ bot.command('addbook', (ctx) => {
   addBookSessions[userId] = { step: 'title', previewFiles: [], _lastActive: Date.now() };
   safeReply(ctx,
     `📚 *አዲስ መጽሐፍ መጨመር*\n\n` +
-    `**ደረጃ 1: የመጽሐፍ ርዕስ ያስገቡ**\n\n` +
+    `*ደረጃ 1: የመጽሐፍ ርዕስ ያስገቡ*\n\n` +
     `ለምሳሌ: \`ድርሳነ ሚካኤል ብራና\`\n\n` +
     `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
     { parse_mode: 'Markdown' }
@@ -885,9 +868,6 @@ bot.command('removebook', (ctx) => {
   safeReply(ctx, "🗑️ *መጽሐፍ መሰረዝ*\n\nየመጽሐፉን መታወቂያ (ID) ያስገቡ።\nለምሳሌ: `amh_law_1`\n\nለመሰረዝ /cancel ይጠቀሙ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", { parse_mode: 'Markdown' });
 });
 
-// 🔄 ORDER BOOK COMMAND (instructions now match validation: full book IDs
-// are required, OR bare per-category sequence numbers are accepted and
-// auto-expanded to full IDs).
 bot.command('orderbook', (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return safeReply(ctx, "⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -896,8 +876,8 @@ bot.command('orderbook', (ctx) => {
   safeReply(ctx,
     "🔄 *መጽሐፍትን እንደገና ማደራጀት*\n\n" +
     "የምድቡን ስም እና አዲሱን ቅደም ተከተል በ ID ያስገቡ። ሙሉ IDs ወይም ቁጥር ብቻ መጠቀም ይችላሉ።\n\n" +
-    "ለምሳሌ (ሙሉ ID):\n`amh_law amh_law_3 amh_law_1 amh_law_5 amh_law_2 amh_law_4`\n\n" +
-    "ወይም (ቁጥር ብቻ):\n`amh_law 3 1 5 2 4`\n\n" +
+    "ለምሳሌ (ሙሉ ID):\n`amh_law amh_law_3 amh_law_1 amh_law_5`\n\n" +
+    "ወይም (ቁጥር ብቻ):\n`amh_law 3 1 5`\n\n" +
     "የምድቡን የአሁኑን ቅደም ተከተል ለማየት የምድቡን ስም ብቻ ይላኩ (ለምሳሌ `amh_law`)።\n\n" +
     "ለመሰረዝ /cancel ይጠቀሙ።\n\n" +
     "👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን", { parse_mode: 'Markdown' }
@@ -928,12 +908,10 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// 💾 BACKUP COMMAND (now includes books)
+// FIX #16: /backup with size limit
 bot.command('backup', async (ctx) => {
   const userId = ctx.from.id;
-  if (!isAdmin(userId)) {
-    return safeReply(ctx, "⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
-  }
+  if (!isAdmin(userId)) return safeReply(ctx, "⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
   try {
     const books = supabase ? (await supabaseGetAllBooks()) : booksDatabase;
     const backupData = {
@@ -942,8 +920,13 @@ bot.command('backup', async (ctx) => {
       bookStats: db.bookStats,
       books
     };
+    const jsonStr = JSON.stringify(backupData, null, 2);
+    const buf = Buffer.from(jsonStr, 'utf-8');
+    if (buf.length > MAX_BACKUP_BYTES) {
+      return safeReply(ctx, `❌ ምትኬ በጣም ትልቅ ነው (${Math.round(buf.length / 1024 / 1024)}MB). ከ${Math.round(MAX_BACKUP_BYTES / 1024 / 1024)}MB በታች መሆን አለበት።`);
+    }
     await ctx.replyWithDocument({
-      source: Buffer.from(JSON.stringify(backupData, null, 2), 'utf-8'),
+      source: buf,
       filename: `backup_${Date.now()}.json`
     }, { caption: `📦 የውሂብ ምትኬ\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን` });
   } catch (error) {
@@ -952,9 +935,9 @@ bot.command('backup', async (ctx) => {
   }
 });
 
-// ==========================================
-// 16. CATEGORY HANDLER (capped list + answerCbQuery)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §16. CATEGORY HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^cat_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const catKey = ctx.match[1];
@@ -962,7 +945,7 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
   if (!books || books.length === 0) {
     return safeAnswerCbQuery(ctx, "ምንም መጽሐፍ የለም", { show_alert: true });
   }
-  const MAX_BUTTONS = 80; // keep well under Telegram's inline keyboard limits
+  const MAX_BUTTONS = 80;
   const shown = books.slice(0, MAX_BUTTONS);
   const buttons = shown.map((book, index) => [
     Markup.button.callback(`${index + 1}. ${book.title}`, `gb_${book.id}`)
@@ -971,13 +954,13 @@ bot.action(/^cat_(.+)$/, async (ctx) => {
   const headerText = books.length > MAX_BUTTONS
     ? `መጽሐፍ ይምረጡ (የመጀመሪያዎቹ ${MAX_BUTTONS}/${books.length}):`
     : "መጽሐፍ ይምረጡ:";
-  await ctx.editMessageText(headerText, Markup.inlineKeyboard(buttons));
+  await safeEdit(ctx, headerText, Markup.inlineKeyboard(buttons));
   safeAnswerCbQuery(ctx);
 });
 
-// ==========================================
-// 17. BOOK HANDLER
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §17. BOOK HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^gb_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
@@ -989,7 +972,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
   safeAnswerCbQuery(ctx);
 
   const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
-  const previewText = `📖 *${book.title}*\n\n📄 *ቅድመ እይታ*\n\n${previewContent}\n\n━━━━━━━━━━━━━━━━━━━━━\n`;
+  const previewText = `📖 *${escMd(book.title)}*\n\n📄 *ቅድመ እይታ*\n\n${escMd(previewContent)}\n\n━━━━━━━━━━━━━━━━━━━━━\n`;
 
   if (!isPaidUser(userId)) {
     return safeReply(ctx,
@@ -1005,9 +988,7 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
       `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
       {
         parse_mode: 'Markdown',
-        ...Markup.inlineKeyboard([
-          [Markup.button.callback("👁 ሙሉ ቅድመ እይታ", `preview_${book.id}`)]
-        ])
+        ...Markup.inlineKeyboard([[Markup.button.callback("👁 ሙሉ ቅድመ እይታ", `preview_${book.id}`)]])
       }
     );
   }
@@ -1027,8 +1008,6 @@ bot.action(/^gb_(.+)$/, async (ctx) => {
   );
 });
 
-// Send a book/preview file using its recorded type, with a graceful
-// fallback chain if the stored type turns out to be wrong.
 async function sendFileSmart(ctx, type, fileId, options) {
   const senders = {
     document: () => ctx.replyWithDocument(fileId, options),
@@ -1053,9 +1032,9 @@ async function sendFileSmart(ctx, type, fileId, options) {
   return false;
 }
 
-// ==========================================
-// 18. DOWNLOAD HANDLER (for paid users) — uses stored file_type
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §18. DOWNLOAD HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^download_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
@@ -1064,7 +1043,6 @@ bot.action(/^download_(.+)$/, async (ctx) => {
   if (!book) {
     return safeAnswerCbQuery(ctx, "መጽሐፉ አልተገኘም", { show_alert: true });
   }
-
   if (!isPaidUser(userId)) {
     safeAnswerCbQuery(ctx);
     return safeReply(ctx, "⛔ ክፍያ አልፈጸሙም። እባክዎትን መጀመሪያ ይክፈሉ።");
@@ -1082,9 +1060,9 @@ bot.action(/^download_(.+)$/, async (ctx) => {
   }
 });
 
-// ==========================================
-// 19. PREVIEW HANDLER — uses stored file_type per preview file
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §19. PREVIEW HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^preview_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const bookId = ctx.match[1];
@@ -1098,14 +1076,10 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
   const previewContent = book.preview || 'ምንም ቅድመ እይታ የለም።';
   const previewFiles = book.preview_files || [];
 
-  let previewText = `📖 *${book.title}*\n\n`;
+  let previewText = `📖 *${escMd(book.title)}*\n\n`;
   previewText += `📄 *ሙሉ ቅድመ እይታ*\n\n`;
-  previewText += `${previewContent}\n\n`;
-
-  if (previewFiles.length > 0) {
-    previewText += `📎 *የተያያዙ ፋይሎች:* ${previewFiles.length}\n\n`;
-  }
-
+  previewText += `${escMd(previewContent)}\n\n`;
+  if (previewFiles.length > 0) previewText += `📎 *የተያያዙ ፋይሎች:* ${previewFiles.length}\n\n`;
   previewText += `━━━━━━━━━━━━━━━━━━━━━\n`;
   previewText += `🔒 ሙሉውን መጽሐፍ ለማንበብ ክፍያ ይፈጽሙ።\n`;
   previewText += `━━━━━━━━━━━━━━━━━━━━━\n\n`;
@@ -1120,34 +1094,40 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
   });
 
   if (previewFiles.length > 0) {
-    let sentCount = 0;
-    let errorCount = 0;
-
+    let sentCount = 0, errorCount = 0;
     for (const entry of previewFiles) {
       if (!entry || !entry.fileId) { errorCount++; continue; }
       const ok = await sendFileSmart(ctx, entry.type, entry.fileId, { caption: `📎 ቅድመ እይታ ፋይል` });
       if (ok) sentCount++; else errorCount++;
     }
-
-    if (errorCount > 0) {
-      await safeReply(ctx, `⚠️ ${errorCount} ፋይሎች መላክ አልተቻለም። እባክዎትን እንደገና ይሞክሩ።`);
-    } else if (sentCount > 0) {
-      await safeReply(ctx, `✅ ${sentCount} ፋይሎች ተልከዋል።`);
-    }
+    if (errorCount > 0) await safeReply(ctx, `⚠️ ${errorCount} ፋይሎች መላክ አልተቻለም።`);
+    else if (sentCount > 0) await safeReply(ctx, `✅ ${sentCount} ፋይሎች ተልከዋል።`);
   }
 });
 
-// ==========================================
-// 20. SUB-MENU ACTIONS
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §20. SUB-MENU ACTIONS (FIX #1: persist preferred_language to Supabase)
+// ═══════════════════════════════════════════════════════════════════════════
+async function setPreferredLanguage(userId, lang) {
+  if (!db.users[userId]) return;
+  db.users[userId].preferred_language = lang;
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('users')
+        .update({ preferred_language: lang })
+        .eq('id', userId);
+      if (error) console.error('Error saving preferred_language:', error);
+    } catch (e) { console.error('Error saving preferred_language:', e); }
+  } else {
+    saveLocalDatabase();
+  }
+}
+
 bot.action("lang_geez", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  const userId = ctx.from.id;
-  if (db.users[userId]) {
-    db.users[userId].preferred_language = "geez";
-    if (!supabase) saveLocalDatabase();
-  }
-  await ctx.editMessageText(
+  await setPreferredLanguage(ctx.from.id, "geez");
+  await safeEdit(ctx,
     "በግዕዝ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ሕግና ሥርዓት", "cat_geez_law")],
@@ -1161,7 +1141,7 @@ bot.action("lang_geez", async (ctx) => {
 
 bot.action("sub_geez_hist", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከታሪክና ድርሳናት ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ታሪክ", "cat_geez_hist")],
@@ -1174,7 +1154,7 @@ bot.action("sub_geez_hist", async (ctx) => {
 
 bot.action("sub_geez_bible", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከመጽሐፍ ቅዱስ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ብሉይ ኪዳን", "cat_geez_ot")],
@@ -1187,12 +1167,8 @@ bot.action("sub_geez_bible", async (ctx) => {
 
 bot.action("lang_ga", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  const userId = ctx.from.id;
-  if (db.users[userId]) {
-    db.users[userId].preferred_language = "geez_amharic";
-    if (!supabase) saveLocalDatabase();
-  }
-  await ctx.editMessageText(
+  await setPreferredLanguage(ctx.from.id, "geez_amharic");
+  await safeEdit(ctx,
     "በግዕዝ አማርኛ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ሕግና ሥርዓት", "cat_ga_law")],
@@ -1206,7 +1182,7 @@ bot.action("lang_ga", async (ctx) => {
 
 bot.action("sub_ga_hist", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከታሪክና ድርሳናት ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ታሪክ", "cat_ga_hist")],
@@ -1219,7 +1195,7 @@ bot.action("sub_ga_hist", async (ctx) => {
 
 bot.action("sub_ga_bible", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከመጽሐፍ ቅዱስ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ብሉይ ኪዳን", "cat_ga_ot")],
@@ -1232,12 +1208,8 @@ bot.action("sub_ga_bible", async (ctx) => {
 
 bot.action("lang_amh", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  const userId = ctx.from.id;
-  if (db.users[userId]) {
-    db.users[userId].preferred_language = "amharic";
-    if (!supabase) saveLocalDatabase();
-  }
-  await ctx.editMessageText(
+  await setPreferredLanguage(ctx.from.id, "amharic");
+  await safeEdit(ctx,
     "በአማርኛ ምድብ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ሕግና ሥርዓት", "cat_amh_law")],
@@ -1253,7 +1225,7 @@ bot.action("lang_amh", async (ctx) => {
 
 bot.action("sub_amh_hist", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከታሪክና ድርሳናት ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ታሪክ", "cat_amh_hist")],
@@ -1266,7 +1238,7 @@ bot.action("sub_amh_hist", async (ctx) => {
 
 bot.action("sub_amh_bible", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከመጽሐፍ ቅዱስ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ብሉይ ኪዳን", "cat_amh_ot")],
@@ -1280,7 +1252,7 @@ bot.action("sub_amh_bible", async (ctx) => {
 
 bot.action("sub_amh_theology", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "ከነገረ ሃይማኖት ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("ነገረ ክርስቶስ", "cat_amh_chr")],
@@ -1295,12 +1267,8 @@ bot.action("sub_amh_theology", async (ctx) => {
 
 bot.action("lang_eng", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  const userId = ctx.from.id;
-  if (db.users[userId]) {
-    db.users[userId].preferred_language = "english";
-    if (!supabase) saveLocalDatabase();
-  }
-  await ctx.editMessageText(
+  await setPreferredLanguage(ctx.from.id, "english");
+  await safeEdit(ctx,
     "Select category:",
     Markup.inlineKeyboard([
       [Markup.button.callback("Law & Order", "cat_eng_law")],
@@ -1316,7 +1284,7 @@ bot.action("lang_eng", async (ctx) => {
 
 bot.action("sub_eng_hist", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "Select category:",
     Markup.inlineKeyboard([
       [Markup.button.callback("History", "cat_eng_hist")],
@@ -1329,7 +1297,7 @@ bot.action("sub_eng_hist", async (ctx) => {
 
 bot.action("sub_eng_bible", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "Select category:",
     Markup.inlineKeyboard([
       [Markup.button.callback("Old Testament", "cat_eng_ot")],
@@ -1343,7 +1311,7 @@ bot.action("sub_eng_bible", async (ctx) => {
 
 bot.action("sub_eng_theology", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "Select category:",
     Markup.inlineKeyboard([
       [Markup.button.callback("Christology", "cat_eng_chr")],
@@ -1358,7 +1326,7 @@ bot.action("sub_eng_theology", async (ctx) => {
 
 bot.action("back_to_lang", async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     "እባኮን ቋንቋ ይምረጡ:",
     Markup.inlineKeyboard([
       [Markup.button.callback("በግዕዝ", "lang_geez"), Markup.button.callback("በግዕዝ አማርኛ", "lang_ga")],
@@ -1369,9 +1337,9 @@ bot.action("back_to_lang", async (ctx) => {
   safeAnswerCbQuery(ctx);
 });
 
-// ==========================================
-// 21. ADD CATEGORY BUTTON (for addbook flow)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §21. ADD CATEGORY ACTION
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^addcat_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   const userId = ctx.from.id;
@@ -1382,7 +1350,7 @@ bot.action(/^addcat_(.+)$/, async (ctx) => {
   session.category = category;
   session.step = 'file';
   touchSession(userId);
-  await ctx.editMessageText(
+  await safeEdit(ctx,
     `✅ ምድብ: \`${category}\`\n\n📎 *ደረጃ 4: የመጽሐፉን ፋይል ይላኩ*\n\n📤 ዋናውን የመጽሐፍ ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n💡 ይህ የመጨረሻ ደረጃ ነው!`,
     { parse_mode: 'Markdown' }
   );
@@ -1394,16 +1362,16 @@ bot.action('cancel_add_book', async (ctx) => {
   const userId = ctx.from.id;
   if (addBookSessions[userId]) {
     delete addBookSessions[userId];
-    await ctx.editMessageText("❌ መጽሐፍ መጨመር ተሰርዟል።");
+    await safeEdit(ctx, "❌ መጽሐፍ መጨመር ተሰርዟል።");
   } else {
     return safeAnswerCbQuery(ctx, "❌ ምንም እየተጨመረ ያለ መጽሐፍ የለም");
   }
   safeAnswerCbQuery(ctx);
 });
 
-// ==========================================
-// 22. ADMIN ACTIONS (Approve/Reject)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §22. ADMIN APPROVE/REJECT
+// ═══════════════════════════════════════════════════════════════════════════
 bot.action(/^approve_(\d+)_(.+)$/, async (ctx) => {
   if (!checkRateLimitCallback(ctx)) return;
   if (!isAdmin(ctx.from.id)) return safeAnswerCbQuery(ctx, "⛔ Admin only!", { show_alert: true });
@@ -1413,7 +1381,7 @@ bot.action(/^approve_(\d+)_(.+)$/, async (ctx) => {
   try {
     await ctx.telegram.sendMessage(userId, `✅ ክፍያ #${orderNumber} ጸድቋል! 🎉\n\nሁሉም መጽሐፍት ተከፍተዋል! መልካም ንባብ! 📚✨\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
   } catch (e) { console.error('Failed to notify user of approval:', e.message); }
-  await ctx.editMessageText(`✅ #${orderNumber} ጸድቋል`);
+  await safeEdit(ctx, `✅ #${orderNumber} ጸድቋል`);
   safeAnswerCbQuery(ctx);
 });
 
@@ -1425,30 +1393,22 @@ bot.action(/^reject_(\d+)_(.+)$/, async (ctx) => {
   try {
     await ctx.telegram.sendMessage(userId, `❌ ክፍያ #${orderNumber} አልጸደቀም። እባክዎትን ትክክለኛ ሪሲት ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
   } catch (e) { console.error('Failed to notify user of rejection:', e.message); }
-  await ctx.editMessageText(`❌ #${orderNumber} አልጸደቀም`);
+  await safeEdit(ctx, `❌ #${orderNumber} አልጸደቀም`);
   safeAnswerCbQuery(ctx);
 });
 
-// ==========================================
-// 23. FILE HANDLER
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §23. FILE HANDLER
+// ═══════════════════════════════════════════════════════════════════════════
 function extractFileInfo(msg) {
-  if (msg.document) {
-    return { type: 'document', fileId: msg.document.file_id, fileName: msg.document.file_name || 'Document.pdf' };
-  }
+  if (msg.document) return { type: 'document', fileId: msg.document.file_id, fileName: msg.document.file_name || 'Document.pdf' };
   if (msg.photo && msg.photo.length > 0) {
     const photo = msg.photo[msg.photo.length - 1];
     return { type: 'photo', fileId: photo.file_id, fileName: 'Photo.jpg' };
   }
-  if (msg.video) {
-    return { type: 'video', fileId: msg.video.file_id, fileName: msg.video.file_name || 'Video.mp4' };
-  }
-  if (msg.audio) {
-    return { type: 'audio', fileId: msg.audio.file_id, fileName: msg.audio.file_name || 'Audio.mp3' };
-  }
-  if (msg.voice) {
-    return { type: 'voice', fileId: msg.voice.file_id, fileName: 'Voice.ogg' };
-  }
+  if (msg.video) return { type: 'video', fileId: msg.video.file_id, fileName: msg.video.file_name || 'Video.mp4' };
+  if (msg.audio) return { type: 'audio', fileId: msg.audio.file_id, fileName: msg.audio.file_name || 'Audio.mp3' };
+  if (msg.voice) return { type: 'voice', fileId: msg.voice.file_id, fileName: 'Voice.ogg' };
   return null;
 }
 
@@ -1457,21 +1417,22 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
   const message = ctx.message;
   if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
 
-  // ---- ADD BOOK: step === 'preview' (preview files, now keep type) ----
+  // Add book — preview files (FIX #22: cap)
   if (addBookSessions[userId] && addBookSessions[userId].step === 'preview') {
     const session = addBookSessions[userId];
     touchSession(userId);
     const fileInfo = extractFileInfo(message);
     if (!fileInfo) return safeReply(ctx, "❌ የፋይሉ መረጃ አልተገኘም።");
-
     if (!session.previewFiles) session.previewFiles = [];
+    if (session.previewFiles.length >= MAX_PREVIEW_FILES) {
+      return safeReply(ctx, `⚠️ ከ${MAX_PREVIEW_FILES} ፋይሎች በላይ መጨመር አይቻልም። /done ይተይቡ።`);
+    }
     session.previewFiles.push({ type: fileInfo.type, fileId: fileInfo.fileId });
-
     await safeReply(ctx, `✅ ቅድመ እይታ ፋይል #${session.previewFiles.length} ተጨምሯል! 📎\n\nሌላ ፋይል መላክ ይችላሉ ወይም ለማጠናቀቅ /done ይተይቡ።`);
     return;
   }
 
-  // ---- ADD BOOK: step === 'file' (final book file, now keeps type) ----
+  // Add book — final file
   if (addBookSessions[userId] && addBookSessions[userId].step === 'file') {
     const session = addBookSessions[userId];
     touchSession(userId);
@@ -1485,7 +1446,6 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
       const num = parseInt(parts[parts.length - 1]);
       return num > max ? num : max;
     }, 0);
-
     const newId = `${category}_${maxId + 1}`;
     const newBook = {
       id: newId,
@@ -1502,9 +1462,9 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
       delete addBookSessions[userId];
       safeReply(ctx,
         `✅ *መጽሐፍ በተሳካ ሁኔታ ተመዝግቧል!* 📚\n\n` +
-        `📂 ምድብ: ${category}\n` +
-        `🆔 መታወቂያ: ${newId}\n` +
-        `📄 ርዕስ: ${session.title}\n` +
+        `📂 ምድብ: ${escMd(category)}\n` +
+        `🆔 መታወቂያ: ${escMd(newId)}\n` +
+        `📄 ርዕስ: ${escMd(session.title)}\n` +
         `📎 የቅድመ እይታ ፋይሎች: ${session.previewFiles ? session.previewFiles.length : 0}\n\n` +
         `👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
         { parse_mode: 'Markdown' }
@@ -1516,48 +1476,44 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     return;
   }
 
-  // ---- ADMIN: get file ID (utility) ----
+  // Admin utility — show file ID
   if (isAdmin(userId)) {
     const fileInfo = extractFileInfo(message);
     if (fileInfo) {
       return safeReply(ctx,
-        `🔑 *የፋይል መታወቂያ*\n\n📄 ${fileInfo.fileName}\n🆔 \`${fileInfo.fileId}\`\n📁 ${fileInfo.type}\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
+        `🔑 *የፋይል መታወቂያ*\n\n📄 ${escMd(fileInfo.fileName)}\n🆔 \`${escMd(fileInfo.fileId)}\`\n📁 ${escMd(fileInfo.type)}\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`,
         { parse_mode: 'Markdown' }
       );
     }
     return safeReply(ctx, "⚠️ የፋይሉ መረጃ አልተገኘም።");
   }
 
-  // ---- PAID USER ----
+  // Paid user — receipt not needed
   if (isPaidUser(userId)) {
     return safeReply(ctx, "✅ ክፍያ ፈጽመዋል። ፋይልዎ ተቀብለናል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }
 
-  // ---- NON-PAID: RECEIPT ----
+  // Non-paid — treat as receipt
   const fileInfo = extractFileInfo(message);
-  if (!fileInfo) {
-    return safeReply(ctx, "⚠️ እባክዎትን የባንክ ሪሲት ይላኩ።");
-  }
+  if (!fileInfo) return safeReply(ctx, "⚠️ እባክዎትን የባንክ ሪሲት ይላኩ።");
 
   const orderNumber = `ORD-${Math.floor(10000 + Math.random() * 90000)}`;
   try {
     const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
 
+    // FIX #3: always populate in-memory pendingReceipts (both modes)
+    db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: 100 };
+
     if (supabase) {
       try {
-        await supabase
-          .from('pending_receipts')
-          .insert({
-            message_id: forwardedMsg.message_id.toString(),
-            user_id: userId,
-            order_number: orderNumber,
-            confidence: 100
-          });
-      } catch (e) {
-        console.error('Error saving pending receipt:', e);
-      }
+        await supabase.from('pending_receipts').insert({
+          message_id: forwardedMsg.message_id.toString(),
+          user_id: userId,
+          order_number: orderNumber,
+          confidence: 100
+        });
+      } catch (e) { console.error('Error saving pending receipt:', e); }
     } else {
-      db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: 100 };
       saveLocalDatabase();
     }
 
@@ -1580,22 +1536,16 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
   }
 });
 
-// ==========================================
-// 24. SEARCH NORMALIZATION (fixed homophone tolerance)
-// ==========================================
-// Map visually/phonetically similar Amharic/Ge'ez characters to a single
-// canonical character, so "ሀ" and "ሐ" and "ሓ" all compare equal. This
-// replaces the previous broken implementation, which stringified entire
-// character classes into literal text instead of truly canonicalizing.
+// ═══════════════════════════════════════════════════════════════════════════
+// §24. HOMOPHONE NORMALIZATION (FIX #6: only true homophones)
+// ═══════════════════════════════════════════════════════════════════════════
 const HOMOPHONE_GROUPS = [
   ['ሀ', 'ሐ', 'ሓ', 'ኀ', 'ኃ'],
   ['አ', 'ኣ', 'ዐ', 'ዓ'],
   ['ደ', 'ዸ'],
   ['ጸ', 'ፀ'],
-  ['ለ', 'ሌ'],
   ['ሰ', 'ሠ'],
   ['ጽ', 'ፅ'],
-  ['ሙ', 'ሚ'],
   ['ን', 'ኝ']
 ];
 const CHAR_CANON_MAP = new Map();
@@ -1609,21 +1559,25 @@ function canonicalizeWord(word) {
   return out;
 }
 
-// ==========================================
-// 25. TEXT HANDLER
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §25. TEXT HANDLER (FIX #2: rate limit; FIX #17: AND search logic)
+// ═══════════════════════════════════════════════════════════════════════════
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
+
+  // FIX #2: rate limit applied
+  if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
+
   logActivity(userId, 'text_received', { text });
 
-  // ---- CANCEL ----
+  // Cancel with session
   if (text === '/cancel' && addBookSessions[userId]) {
     delete addBookSessions[userId];
     return safeReply(ctx, "❌ ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }
 
-  // ---- ADD BOOK FLOW ----
+  // ADD BOOK FLOW
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
     touchSession(userId);
@@ -1674,17 +1628,17 @@ bot.on('text', async (ctx) => {
       return safeReply(ctx, "📤 እባክዎትን ዋናውን የመጽሐፍ ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
     }
 
-    // ---- REMOVE BOOK FLOW ----
+    // REMOVE BOOK
     if (session.step === 'remove_waiting') {
       const bookId = text.trim();
       const book = await getBook(bookId);
       if (!book) {
-        return safeReply(ctx, `❌ መታወቂያ \`${bookId}\` ያለው መጽሐፍ አልተገኘም።`, { parse_mode: 'Markdown' });
+        return safeReply(ctx, `❌ መታወቂያ \`${escMd(bookId)}\` ያለው መጽሐፍ አልተገኘም።`, { parse_mode: 'Markdown' });
       }
       session.remove_book_id = bookId;
       session.step = 'remove_confirm';
       return safeReply(ctx,
-        `📖 *ተገኘ:*\n\nርዕስ: ${book.title}\nምድብ: ${book.category}\nመታወቂያ: ${book.id}\n\n❓ ይህንን መጽሐፍ መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?\n**እዎ** ወይም **አይ** ይተይቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`
+        `📖 *ተገኘ:*\n\nርዕስ: ${escMd(book.title)}\nምድብ: ${escMd(book.category)}\nመታወቂያ: ${escMd(book.id)}\n\n❓ ይህንን መጽሐፍ መሰረዝ እንደሚፈልጉ እርግጠኛ ነዎት?\n**እዎ** ወይም **አይ** ይተይቡ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`
       );
     }
 
@@ -1694,7 +1648,7 @@ bot.on('text', async (ctx) => {
         const result = await removeBook(bookId);
         if (result) {
           delete addBookSessions[userId];
-          return safeReply(ctx, `✅ መጽሐፍ \`${bookId}\` ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
+          return safeReply(ctx, `✅ መጽሐፍ \`${escMd(bookId)}\` ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`);
         } else {
           return safeReply(ctx, `❌ መጽሐፍ መሰረዝ አልተሳካም። እባክዎትን እንደገና ይሞክሩ።`);
         }
@@ -1704,37 +1658,29 @@ bot.on('text', async (ctx) => {
       }
     }
 
-    // ---- ORDER BOOK FLOW (now matches documented usage; supports bare
-    //      numeric sequence numbers AND full IDs; single-word input shows
-    //      the current order) ----
+    // ORDER BOOK
     if (session.step === 'order_waiting') {
       const parts = text.trim().split(/\s+/);
       const category = parts[0];
       if (!category) return safeReply(ctx, "❌ እባክዎትን ይህን ይተይቡ: `ምድብ ID1 ID2 ...`", { parse_mode: 'Markdown' });
 
       const books = await getBooks(category);
-      if (!books || books.length === 0) return safeReply(ctx, `❌ ምድብ \`${category}\` ምንም መጽሐፍ የለውም ወይም አልተገኘም።`, { parse_mode: 'Markdown' });
+      if (!books || books.length === 0) return safeReply(ctx, `❌ ምድብ \`${escMd(category)}\` ምንም መጽሐፍ የለውም ወይም አልተገኘም።`, { parse_mode: 'Markdown' });
 
       if (parts.length < 2) {
-        let msg = `📚 *የአሁኑ ቅደም ተከተል ለ ${category}:*\n\n`;
+        let msg = `📚 *የአሁኑ ቅደም ተከተል ለ ${escMd(category)}:*\n\n`;
         books.forEach((b, i) => {
-          msg += `${i + 1}. ${b.title} (መታወቂያ: ${b.id})\n`;
+          msg += `${i + 1}. ${escMd(b.title)} (መታወቂያ: ${escMd(b.id)})\n`;
         });
         return safeReply(ctx, msg, { parse_mode: 'Markdown' });
       }
 
-      // Accept either full IDs ("amh_law_3") or bare sequence numbers ("3")
-      // and normalize everything to full IDs.
       const rawIds = parts.slice(1);
-      const orderedIds = rawIds.map(token => {
-        if (/^\d+$/.test(token)) return `${category}_${token}`;
-        return token;
-      });
-
+      const orderedIds = rawIds.map(token => /^\d+$/.test(token) ? `${category}_${token}` : token);
       const allIds = books.map(b => b.id);
       const missing = orderedIds.filter(id => !allIds.includes(id));
       if (missing.length > 0) {
-        return safeReply(ctx, `❌ እነዚህ መታወቂያዎች በምድብ \`${category}\` ውስጥ የሉም: ${missing.join(', ')}`, { parse_mode: 'Markdown' });
+        return safeReply(ctx, `❌ እነዚህ መታወቂያዎች በምድብ \`${escMd(category)}\` ውስጥ የሉም: ${missing.map(escMd).join(', ')}`, { parse_mode: 'Markdown' });
       }
       if (orderedIds.length !== books.length) {
         return safeReply(ctx, `⚠️ ${orderedIds.length} መታወቂያዎች ገብተዋል፣ ነገር ግን ምድቡ ${books.length} መጽሐፍ አለው። ሁሉንም መጽሐፍት ያካትቱ።`);
@@ -1742,7 +1688,7 @@ bot.on('text', async (ctx) => {
       const success = await reorderBooks(category, orderedIds);
       if (success) {
         delete addBookSessions[userId];
-        return safeReply(ctx, `✅ መጽሐፍት በ \`${category}\` ውስጥ እንደገና ተደራጅተዋል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, { parse_mode: 'Markdown' });
+        return safeReply(ctx, `✅ መጽሐፍት በ \`${escMd(category)}\` ውስጥ እንደገና ተደራጅተዋል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን`, { parse_mode: 'Markdown' });
       } else {
         return safeReply(ctx, `❌ እንደገና ማደራጀት አልተሳካም። እባክዎትን እንደገና ይሞክሩ።`);
       }
@@ -1752,34 +1698,26 @@ bot.on('text', async (ctx) => {
     return safeReply(ctx, "❌ ስራው ተበላሽቷል። እባክዎትን እንደገና ይጀምሩ።");
   }
 
-  // ---- SKIP COMMANDS & BUTTON TEXTS ----
+  // Skip commands
   if (text.startsWith('/')) return;
 
-  // ---- SEARCH (typo-tolerant, cache-backed — no per-message DB fan-out) ----
+  // SEARCH (FIX #17: AND logic — all query words must match)
   const query = text.trim().toLowerCase();
   const searchWords = query.split(' ').filter(w => w.length > 0).map(canonicalizeWord);
   if (searchWords.length === 0) return;
 
   const allBooks = await getAllBooksFlat();
-  let matches = [];
+  const matches = [];
 
   for (const book of allBooks) {
     if (!book.title) continue;
-    const title = book.title.toLowerCase();
-    const titleWords = title.split(' ').filter(w => w.length > 0).map(canonicalizeWord);
+    const titleWords = book.title.toLowerCase().split(' ').filter(w => w.length > 0).map(canonicalizeWord);
     if (titleWords.length === 0) continue;
 
-    let isMatch = false;
-    for (const sWord of searchWords) {
-      for (const tWord of titleWords) {
-        if (tWord.includes(sWord) || sWord.includes(tWord)) {
-          isMatch = true;
-          break;
-        }
-      }
-      if (isMatch) break;
-    }
-    if (isMatch) matches.push(book);
+    const allWordsMatch = searchWords.every(sWord =>
+      titleWords.some(tWord => tWord.includes(sWord) || sWord.includes(tWord))
+    );
+    if (allWordsMatch) matches.push(book);
   }
 
   matches.sort((a, b) => {
@@ -1794,7 +1732,7 @@ bot.on('text', async (ctx) => {
   });
 
   if (matches.length === 0) {
-    return safeReply(ctx, `🔍 ለ "${text}" ምንም ውጤት አልተገኘም።\n\n💡 እባክዎትን የመጽሐፉን ስም በትክክል ይጻፉ።`);
+    return safeReply(ctx, `🔍 ለ "${escMd(text)}" ምንም ውጤት አልተገኘም።\n\n💡 እባክዎትን የመጽሐፉን ስም በትክክል ይጻፉ።`, { parse_mode: 'Markdown' });
   }
 
   const shown = matches.slice(0, SEARCH_RESULTS_LIMIT);
@@ -1807,9 +1745,9 @@ bot.on('text', async (ctx) => {
   safeReply(ctx, headerText, Markup.inlineKeyboard(buttons));
 });
 
-// ==========================================
-// 26. LAUNCH (with data loading)
-// ==========================================
+// ═══════════════════════════════════════════════════════════════════════════
+// §26. LAUNCH (FIX #5: direct cache read; FIX #18: graceful shutdown)
+// ═══════════════════════════════════════════════════════════════════════════
 async function launchBot() {
   if (supabase) {
     console.log('📥 Loading data from Supabase...');
@@ -1817,7 +1755,6 @@ async function launchBot() {
     await loadBookStatsFromSupabase();
     await loadPendingReceiptsFromSupabase();
   }
-  // Build the in-memory books cache once at startup (used by every hot path).
   await refreshAllBooksCache();
 
   try {
@@ -1825,12 +1762,18 @@ async function launchBot() {
     console.log("✅ Bot is running...");
     console.log("📚 Orthodox Spiritual Books Bot is ready!");
     console.log("👑 Admin IDs:", ADMIN_IDS);
+
+    // FIX #5: read cache directly, no await loop
     let total = 0;
+    let activeCats = 0;
     for (const cat of allCategories) {
-      const books = await getBooks(cat);
-      total += books.length;
+      const count = (allBooksCache[cat] || []).length;
+      if (count > 0) {
+        total += count;
+        activeCats++;
+      }
     }
-    console.log(`📖 Total Books: ${total}`);
+    console.log(`📖 Total Books: ${total} across ${activeCats}/${allCategories.length} categories`);
     console.log(`👤 Total Users: ${Object.keys(db.users).length}`);
     console.log(`📊 Book Stats: ${Object.keys(db.bookStats).length}`);
   } catch (error) {
@@ -1846,5 +1789,23 @@ async function launchBot() {
 
 launchBot();
 
-process.once('SIGINT', () => { bot.stop('SIGINT'); });
-process.once('SIGTERM', () => { bot.stop('SIGTERM'); });
+// FIX #18: graceful shutdown — close both bot and Express server
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n🛑 Received ${signal}, shutting down...`);
+  try { bot.stop(signal); } catch (e) { /* ignore */ }
+  try { server.close(() => console.log('✅ Server closed.')); } catch (e) { /* ignore */ }
+  setTimeout(() => process.exit(0), 3000);
+}
+process.once('SIGINT', () => shutdown('SIGINT'));
+process.once('SIGTERM', () => shutdown('SIGTERM'));
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled Rejection:', reason);
+  logError('unhandled_rejection', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err);
+  logError('uncaught_exception', err);
