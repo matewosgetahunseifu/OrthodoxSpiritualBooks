@@ -14,7 +14,6 @@ const { createClient } = require('@supabase/supabase-js');
 // ═══════════════════════════════════════════════════════════════════════════
 const BOT_TOKEN = process.env.BOT_TOKEN || "YOUR_TELEGRAM_BOT_TOKEN_HERE";
 
-// FIX #9: ADMIN_IDS from environment variable (comma-separated)
 const ADMIN_IDS = (process.env.ADMIN_IDS || "7480368503")
   .split(',')
   .map(id => parseInt(id.trim(), 10))
@@ -27,11 +26,7 @@ const RATE_LIMIT = 30;
 const RATE_WINDOW = 60 * 1000;
 const SEARCH_RESULTS_LIMIT = 20;
 const STATS_KEY_SEP = '::';
-
-// FIX #22: cap on preview files per book
 const MAX_PREVIEW_FILES = 10;
-
-// FIX #16: backup size limit (Telegram allows up to 50MB)
 const MAX_BACKUP_BYTES = 40 * 1024 * 1024;
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -59,7 +54,7 @@ bot.telegram.setMyCommands([
 ]);
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §3. EXPRESS SERVER (FIX #18: graceful shutdown)
+// §3. EXPRESS SERVER
 // ═══════════════════════════════════════════════════════════════════════════
 const app = express();
 
@@ -79,7 +74,7 @@ setInterval(async () => {
 }, 3 * 60 * 1000);
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §4. HELPERS — Markdown escape (FIX #10) + safeEdit (FIX #15)
+// §4. HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 function escMd(text) {
   return String(text == null ? '' : text).replace(/[_*[\]()~`>#+\-=|{}.!]/g, '\\$&');
@@ -102,7 +97,6 @@ async function safeEdit(ctx, ...args) {
 const DATA_FILE = path.join(__dirname, 'database.json');
 let db = null;
 
-// FIX #4: always coerce preview_files into a clean array of {type, fileId}
 function normalizePreviewFiles(raw) {
   if (Array.isArray(raw)) {
     return raw.map(normalizePreviewFileEntry).filter(Boolean);
@@ -139,7 +133,6 @@ function normalizeBookRecord(book) {
   return book;
 }
 
-// --- Supabase helpers ---
 async function supabaseGetBooks(category) {
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -195,7 +188,6 @@ async function supabaseReorderBooks(category, orderedIds) {
   return true;
 }
 
-// --- Local JSON fallback ---
 const booksDatabase = {};
 
 function loadLocalDatabase() {
@@ -326,7 +318,6 @@ async function getAllBooksFlat() {
   return out;
 }
 
-// FIX #13: local-mode fallback to booksDatabase
 async function getBook(id) {
   for (const cat of Object.keys(allBooksCache)) {
     const found = allBooksCache[cat].find(b => b.id === id);
@@ -398,7 +389,7 @@ async function reorderBooks(category, orderedIds) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §8. ADD BOOK SESSIONS (FIX #21: touch on every interaction)
+// §8. ADD BOOK SESSIONS
 // ═══════════════════════════════════════════════════════════════════════════
 const addBookSessions = {};
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000;
@@ -439,7 +430,6 @@ function defaultUserRecord(from) {
   };
 }
 
-// FIX #11: return whether the user was newly registered
 async function registerUser(from) {
   if (!db.users[from.id]) {
     db.users[from.id] = defaultUserRecord(from);
@@ -457,7 +447,6 @@ async function registerUser(from) {
   return false;
 }
 
-// FIX #14: markUserPaid preserves existing fields
 async function markUserPaid(userId, fromHint) {
   if (!db.users[userId]) {
     db.users[userId] = defaultUserRecord(fromHint || { id: userId });
@@ -484,7 +473,6 @@ async function markUserPaid(userId, fromHint) {
   logActivity(userId, 'payment_approved', { status: 'paid' });
 }
 
-// FIX #20: trackDownload updates memory first, then Supabase
 async function trackDownload(userId, catKey, bookId) {
   if (!db.users[userId]) return;
   db.users[userId].total_downloads = (db.users[userId].total_downloads || 0) + 1;
@@ -532,7 +520,6 @@ function getUserStats(userId) {
   };
 }
 
-// FIX #8: non-blocking logs (best-effort; ephemeral on Render free tier)
 function logActivity(userId, action, details) {
   try {
     const logFile = path.join(__dirname, 'activity.log');
@@ -605,7 +592,7 @@ const mainKeyboard = Markup.keyboard([
 ]).resize();
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §13. START COMMAND (FIX #11: welcome back for existing users)
+// §13. START COMMAND
 // ═══════════════════════════════════════════════════════════════════════════
 bot.start(async (ctx) => {
   const userId = ctx.from.id;
@@ -759,7 +746,6 @@ bot.command('help', (ctx) => {
   );
 });
 
-// FIX #5: /bookcount reads cache directly (no await loop)
 bot.command('bookcount', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   try {
@@ -789,7 +775,6 @@ bot.command('bookcount', async (ctx) => {
   }
 });
 
-// FIX #7: /popular shows "no results" instead of empty body
 bot.command('popular', async (ctx) => {
   if (!checkRateLimit(ctx.from.id)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
   if (!db.bookStats || Object.keys(db.bookStats).length === 0) {
@@ -908,7 +893,6 @@ bot.command('stats', (ctx) => {
   );
 });
 
-// FIX #16: /backup with size limit
 bot.command('backup', async (ctx) => {
   const userId = ctx.from.id;
   if (!isAdmin(userId)) return safeReply(ctx, "⛔ ይህ ትዕዛዝ ለአስተዳዳሪ ብቻ ነው!");
@@ -1106,7 +1090,7 @@ bot.action(/^preview_(.+)$/, async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §20. SUB-MENU ACTIONS (FIX #1: persist preferred_language to Supabase)
+// §20. SUB-MENU ACTIONS
 // ═══════════════════════════════════════════════════════════════════════════
 async function setPreferredLanguage(userId, lang) {
   if (!db.users[userId]) return;
@@ -1417,7 +1401,6 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
   const message = ctx.message;
   if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
 
-  // Add book — preview files (FIX #22: cap)
   if (addBookSessions[userId] && addBookSessions[userId].step === 'preview') {
     const session = addBookSessions[userId];
     touchSession(userId);
@@ -1432,7 +1415,6 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     return;
   }
 
-  // Add book — final file
   if (addBookSessions[userId] && addBookSessions[userId].step === 'file') {
     const session = addBookSessions[userId];
     touchSession(userId);
@@ -1476,7 +1458,6 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     return;
   }
 
-  // Admin utility — show file ID
   if (isAdmin(userId)) {
     const fileInfo = extractFileInfo(message);
     if (fileInfo) {
@@ -1488,12 +1469,10 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
     return safeReply(ctx, "⚠️ የፋይሉ መረጃ አልተገኘም።");
   }
 
-  // Paid user — receipt not needed
   if (isPaidUser(userId)) {
     return safeReply(ctx, "✅ ክፍያ ፈጽመዋል። ፋይልዎ ተቀብለናል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }
 
-  // Non-paid — treat as receipt
   const fileInfo = extractFileInfo(message);
   if (!fileInfo) return safeReply(ctx, "⚠️ እባክዎትን የባንክ ሪሲት ይላኩ።");
 
@@ -1501,7 +1480,6 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
   try {
     const forwardedMsg = await ctx.telegram.forwardMessage(ADMIN_IDS[0], ctx.chat.id, message.message_id);
 
-    // FIX #3: always populate in-memory pendingReceipts (both modes)
     db.pendingReceipts[forwardedMsg.message_id] = { userId, orderNumber, confidence: 100 };
 
     if (supabase) {
@@ -1537,7 +1515,7 @@ bot.on(['document', 'photo', 'video', 'audio', 'voice'], async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §24. HOMOPHONE NORMALIZATION (FIX #6: only true homophones)
+// §24. HOMOPHONE NORMALIZATION
 // ═══════════════════════════════════════════════════════════════════════════
 const HOMOPHONE_GROUPS = [
   ['ሀ', 'ሐ', 'ሓ', 'ኀ', 'ኃ'],
@@ -1560,24 +1538,21 @@ function canonicalizeWord(word) {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §25. TEXT HANDLER (FIX #2: rate limit; FIX #17: AND search logic)
+// §25. TEXT HANDLER
 // ═══════════════════════════════════════════════════════════════════════════
 bot.on('text', async (ctx) => {
   const userId = ctx.from.id;
   const text = ctx.message.text;
 
-  // FIX #2: rate limit applied
   if (!checkRateLimit(userId)) return safeReply(ctx, "⏳ እባክዎትን ትንሽ ይጠብቁ!");
 
   logActivity(userId, 'text_received', { text });
 
-  // Cancel with session
   if (text === '/cancel' && addBookSessions[userId]) {
     delete addBookSessions[userId];
     return safeReply(ctx, "❌ ተሰርዟል።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
   }
 
-  // ADD BOOK FLOW
   if (addBookSessions[userId]) {
     const session = addBookSessions[userId];
     touchSession(userId);
@@ -1628,7 +1603,6 @@ bot.on('text', async (ctx) => {
       return safeReply(ctx, "📤 እባክዎትን ዋናውን የመጽሐፍ ፋይል (ፒዲኤፍ፣ ፎቶ፣ ቪዲዮ፣ ወዘተ) ይላኩ።\n\n👨‍💻 የቦቱ አዘጋጅ ዲያቆን ማቴዎስ ጌታሁን");
     }
 
-    // REMOVE BOOK
     if (session.step === 'remove_waiting') {
       const bookId = text.trim();
       const book = await getBook(bookId);
@@ -1658,7 +1632,6 @@ bot.on('text', async (ctx) => {
       }
     }
 
-    // ORDER BOOK
     if (session.step === 'order_waiting') {
       const parts = text.trim().split(/\s+/);
       const category = parts[0];
@@ -1698,10 +1671,8 @@ bot.on('text', async (ctx) => {
     return safeReply(ctx, "❌ ስራው ተበላሽቷል። እባክዎትን እንደገና ይጀምሩ።");
   }
 
-  // Skip commands
   if (text.startsWith('/')) return;
 
-  // SEARCH (FIX #17: AND logic — all query words must match)
   const query = text.trim().toLowerCase();
   const searchWords = query.split(' ').filter(w => w.length > 0).map(canonicalizeWord);
   if (searchWords.length === 0) return;
@@ -1746,7 +1717,7 @@ bot.on('text', async (ctx) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-// §26. LAUNCH (FIX #5: direct cache read; FIX #18: graceful shutdown)
+// §26. LAUNCH
 // ═══════════════════════════════════════════════════════════════════════════
 async function launchBot() {
   if (supabase) {
@@ -1763,7 +1734,6 @@ async function launchBot() {
     console.log("📚 Orthodox Spiritual Books Bot is ready!");
     console.log("👑 Admin IDs:", ADMIN_IDS);
 
-    // FIX #5: read cache directly, no await loop
     let total = 0;
     let activeCats = 0;
     for (const cat of allCategories) {
@@ -1809,3 +1779,4 @@ process.on('unhandledRejection', (reason) => {
 process.on('uncaughtException', (err) => {
   console.error('❌ Uncaught Exception:', err);
   logError('uncaught_exception', err);
+});
